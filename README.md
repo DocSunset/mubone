@@ -77,7 +77,7 @@ the expected manner.
 
 ## electronic design
 
-## circuit boards
+### circuit boards
 
 The design incorporates eight different printed circuit boards (PCBs) connected
 by flexible ribbon cables. This approach was chosen to facilitate ongoing
@@ -124,4 +124,37 @@ the design.
 
 ### wireless communications
 
+An ESP8266 module is connected to the MCU via the motherboard. Its firmware is
+configured to receive serial line internet protocol (SLIP) encoded open sound
+control (OSC) packets (i.e. SLIP-encoded OSC packets) from the MCU and forward
+them to the local area network. A seperate module is used to offload the network
+handling from the MCU so that the latter can focus on reading sensors and
+conditioning their signals, as well as to somewhat simplify prototyping.
 
+## applications
+
+### sensor model
+
+This JUCE application reads the sensors over the network and conditions,
+combines, and analyses the raw data to produce additional useful gesture
+features. The raw data and analysed features are then re-broadcast over OSC for
+further use by other applications.
+
+As much as possible, this application is used as a rapid prototyping tool for
+gesture-feature extraction algorithms that can ultimately be integrated in the
+device firmware. 
+
+### granular
+
+This JUCE application creates a spatial recorder and granulator allowing sounds
+to be placed at locations in space around the player and later granulated by
+pointing the mubone towards those locations. This is the original mubone
+application. A pure data patch is used to achieve the mapping, so in principle
+the granulator could be used with any controller that provides a spatial signal
+to use for positioning and recalling sounds.
+
+### pure data patches
+
+As well as the mapping for the granular application, several other pure data
+patches are included in the repository. These are mostly sketches from
+workshops exploring other possible approaches to using the mubone. 

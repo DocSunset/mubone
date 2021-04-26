@@ -1,0 +1,8 @@
+A mubone is a kind of trombone where instead of being manipulated directly with
+the hand, the slide is moved via a digital controller. As well as several
+buttons and potentiometers on the controller, a mubone also senses the
+orientation of the controller relative to the brass, the orientation of the
+brass relative to the world, and the position of the slide.
+
+This document presents the firmware for the most recent incarnation of this
+overall instrument identity, designed by Travis West and Kalun Leung. 

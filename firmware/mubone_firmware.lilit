@@ -33,14 +33,14 @@ granular, etc).
 
 ### slide position sensor
 
-The slide position sensor is a kind of string potentiometer. A kevlar tether is
+The slide position sensor is a kind of string potentiometer. A Kevlar tether is
 attached to a fixed point on the brass near the mouthpiece, and wrapped around
 a spring-loaded spool. When the slide is extended, the spool rotates freely
 releasing the tether. When the slide is retracted, the spring causes the spool
 to turn back and take up the tether. A shaft is attached to the spool and
 turns two potentiometers. By measuring the rotation of the spool, the position
 of the slide can be tracked. Two potentiometers are used since a single
-potentiometer has a deadzone of about 30 degrees where the measurement is not
+potentiometer has a dead zone of about 30 degrees where the measurement is not
 accurate.
 
 ### orientation sensor
@@ -83,8 +83,8 @@ The design incorporates eight different printed circuit boards (PCBs) connected
 by flexible ribbon cables. This approach was chosen to facilitate ongoing
 improvement to the design without having to replace the whole electronic
 subassembly with every update. In addition to the principle PCB (the
-motherboard) that includes the microcontroller that reads the sensors, the
-following elements have their own circuit boards as well:
+motherboard) that includes the microcontroller unit (MCU) that reads the
+sensors, the following elements have their own circuit boards as well:
 
 - the slide position sensor
 - the rotator (including the MIMU)
@@ -100,6 +100,28 @@ ADS1219 analog-to-digital converters (ADCs) are used to measure the signals
 from the trigger, u-joint, rotator, and slide position sensor. This integrated
 circuit (IC) allows two 24-bit bi-polar signals or four 23-bit uni-polar
 signals to be captured with a reasonable sampling rate. The IC is controlled
-using I2C protocol. One is placed on the PCB for the
-slide position sensor, and another
+using I2C protocol. One is placed on the PCB for the slide position sensor and
+is solely used to measure the signals from its two potentiometers. Another is
+placed on the motherboard and measures the signals from the rotator, u-joint,
+and trigger potentiometers. The remaining analog signals from the joystick are
+measured using the 10-bit converts integrated in the MCU.
+
+The choice to use high resolution ADCs was motivated by our experience with an
+earlier incarnation of the mubone design, where we found that we could perceive
+the steps between bits when slowly turning the controller--the resolution of
+our ability to control the mubone was greater than the resolution of the
+sensors in it.  We considered this situation unacceptable, thus the selection
+of high resolution ADCs. We had no such issues with the joystick, so we
+retained the MCU's converters for its signals.
+
+### battery power
+
+The controller assembly is powered by a single rechargeable 2200 mAh 3.7 V
+cylindrical lithium battery. The battery is attached to the grip, where its
+mass helps to counterbalance that of the rest of the attachment. Currently it
+remains future work to integrate such niceties as a charger and fuel gauge into
+the design.
+
+### wireless communications
+
 

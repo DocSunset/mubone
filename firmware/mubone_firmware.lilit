@@ -1,0 +1,142 @@
+# mubone firmware
+
+The mubone firmware is an Arduino sketch. The main logic is seperated out into
+template functions:
+
+```c++
+// @#'mubone_firmware.ino'
+@{includes}
+
+@{global defintions}
+
+void setup()
+{
+    @{sensors setup}
+}
+
+void loop()
+{
+    @{read sensors}
+}
+// @
+```
+
+## OSC
+
+All of the sensor readings are packed into an OSC bundle which is periodically
+sent to the network via the attached ESP8266. The bundle is declared static
+in the loop function and reused every loop so that memory only has to be
+allocated for it once, the first time the loop runs.
+
+```c++
+// @+'includes'
+#include "OSCBundle.h"
+// @
+
+// @+'read sensors'
+static OSCBundle bundle;
+// @
+```
+
+## buttons
+
+Buttons are the simplest sensors to measure. The internal pull-up resistor of
+the MCU pin the button is attached to keeps the pin at a logical high voltage
+until the button is pressed, connecting the pin directly to ground and
+producing a logical low value.
+
+```c++
+// @+'global definitions'
+struct Button
+{
+    const int pin;
+
+    constexpr Button(const int p) : pin{p} {}
+
+    void setup() const
+    {
+        pinMode(pin, INPUT_PULLUP);
+    }
+
+    void read(OSCBundle& bundle) const
+    {
+    }
+}
+
+constexpr Button buttons[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+// @
+
+// @+'sensors setup'
+for (const auto& button : buttons) button.setup();
+// @
+
+// @+'read sensors'
+for (const auto& button: buttons) button.read(bundle);
+// @
+```
+
+## joystick
+
+The joystick button is read alongside all the other buttons. Its analog signals
+are handled independently, but in a similarly simple manner using the Arduino
+library to read from the MCU's ADC.
+
+```c++
+// @+'global definitions'
+struct Joystick
+{
+    const int pin_x;
+    const int pin_y;
+
+    constexpr Joystick(const int x, const int y) : pin_x{x}, pin_y{y} {}
+
+    void setup() const
+    {
+        pinMode(pin_x, INPUT);
+        pinMode(pin_y, INPUT);
+    }
+
+    void read(OSCBundle& bundle) const
+    {
+        int x = analogRead(pin_x);
+        int y = analogRead(pin_y);
+    }
+}
+
+constexpr Joystick joystick{1, 2};
+// @
+
+// @+'sensors setup'
+joystick.setup();
+// @
+
+// @+'read sensors'
+joystick.read(bundle);
+// @
+```
+
+## slide position sensor
+
+The slide position sensor uses an ADS1219 ADC configured to read two bipolar
+signals from the two potentiometers of the slide pot. Most of the tricky parts
+of working with the ADC are handled by a seperate library.
+
+```c++
+// @+'includes'
+#include "ADS1219.h"
+// @
+
+// @+'global definitions'
+using namespace ADS1219;
+Address sps_address(ADDR0::DGND, ADDR1::DGND);
+ADS1219_ADC sps(sps_address, Wire);
+// @
+
+// @+'setup sensors'
+sps.set_config( MUX::AIN0
+              , RATE::SPS1000
+              , MODE::CONTINUOUS
+              , VREF::EXTERN
+              );
+// @
+```

@@ -16,7 +16,11 @@ void setup()
 
 void loop()
 {
+    OSCBundle error_messages;
     @{read sensors}
+    @{receive OSC messages}
+    @{dispatch OSC messages}
+    @{transmit OSC messages}
 }
 // @
 ```
@@ -26,7 +30,7 @@ void loop()
 All of the sensor readings are packed into an OSC bundle which is periodically
 sent to the network via the attached ESP8266. The bundle is declared static
 in the loop function and reused every loop so that memory only has to be
-allocated for it once, the first time the loop runs.
+allocated for it once, the first time the loop runs. 
 
 ```c++
 // @+'includes'
@@ -115,11 +119,13 @@ joystick.read(bundle);
 // @
 ```
 
-## slide position sensor
+## ADS1219 sensors
 
-The slide position sensor uses an ADS1219 ADC configured to read two bipolar
-signals from the two potentiometers of the slide pot. Most of the tricky parts
-of working with the ADC are handled by a seperate library.
+The slide position sensor, rotator, u-joint, and trigger use ADS1219 ADCs. Most
+of the tricky parts of working with the ADC are handled by a seperate library.
+The firmware has to keep track of which channel of the ADC is being read, and
+has to manually cycle through the channels. The handling is very similar for
+the slide position sensor (sps) and the sensors that share the other ADS1219.
 
 ```c++
 // @+'includes'
@@ -128,15 +134,110 @@ of working with the ADC are handled by a seperate library.
 
 // @+'global definitions'
 using namespace ADS1219;
+
 Address sps_address(ADDR0::DGND, ADDR1::DGND);
 ADS1219_ADC sps(sps_address, Wire);
+
+Address misc_adc_address(AADR0::DGND. ADDR1::DGND);
+ADS1219_ADC misc_adc(misc_adc_address, Wire);
+
+struct ADS1219_Sensor
+{
+    const MUX channel;
+    float reading;
+    constexpr ADS1219_Sensor(const MUX c) : channel{c}, reading{0} {}
+}
+
+ADS1219_Sensor sps_pots[] = {MUX::AIN0_AIN1, MUX::AIN2_AIN3};
+ADS1219_Sensor misc_pots[] = {MUX::AIN0, MUX::AIN1, MUX:AIN2, MUX::AIN3};
+
 // @
 
-// @+'setup sensors'
-sps.set_config( MUX::AIN0
+// @+'sensors setup'
+sps.set_config( MUX::AIN0_AIN1
               , RATE::SPS1000
               , MODE::CONTINUOUS
               , VREF::EXTERN
               );
+sps.start_conversion();
+
+misc_adc.set_config( MUX::AIN0
+              , RATE::SPS1000
+              , MODE::CONTINUOUS
+              , VREF::EXTERN
+              );
+misc_adc.start_conversion();
+
+// @
+
+// @+'read sensors'
+{
+    static int pot = 0;
+    if (sps.data_ready())
+    {
+        bool ret = sps.read_normalized(sps_pots[pot].reading);
+        pot ^= 1; // switch to next potentiometer
+        ret = sps.modify_config(sps_pots[pot].channel);
+    }
+}
+{
+    static int pot = 0;
+    if (misc_adc.data_ready())
+    {
+        bool ret = sps.read_normalized(misc_pots[pot].rreading);
+        pot = (pot + 1) & 0b11; // switch to next potentiometer
+        ret = misc_adc.modify_config(misc_pots[pot].channel);
+    }
+}
+
 // @
 ```
+
+## MIMU
+
+The MIMU sensors are particularly involved since they require calibration and
+sensor fusion. Most of the details of these algorithms are abstracted away in
+the MIMU libraries.
+
+```c++
+// @+'includes'
+#include "MIMU.h"
+// @
+
+// @+'global definitions'
+MIMU mimu(backend, address, Wire);
+MIMUCalibrator mimu_calibrator{};
+MIMUFusion mimu_fusion{};
+// @
+
+// @+'sensors setup'
+
+// @
+
+// @+'read sensors'
+{
+    static MIMUReading mimu_reading{};
+    static Quaternion orientation = Quaternion::Zero;
+    mimu.read(mimu_reading);
+    mimu_calibrator.calibrate(mimu_reading);
+    orientation = mimu_fusion.fuse(mimu_reading);
+}
+// @
+```
+
+## setting the zero positions
+
+
+
+## receiving OSC inputs
+
+
+
+## updating calibration
+
+
+
+## LEDs
+
+
+

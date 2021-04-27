@@ -200,11 +200,32 @@ mimu_calibrator.setCalibration(mimu_calibration);
 // @
 
 // @+'read sensors'
+static OSCMessage& accl = bundle.add("/mubone/accl");
+static OSCMessage& gyro = bundle.add("/mubone/gyro");
+static OSCMessage& magn = bundle.add("/mubone/magn");
+static OSCMessage& quat = bundle.add("/mubone/quat");
 {
-    static MIMUReading mimu_reading = MIMUReading::Zero();
-    mimu.readiInto(mimu_reading);
-    mimu_calibrator.calibrate(mimu_reading);
-    orientation = mimu_fusion.fuse(mimu_reading);
+    static MIMUReading reading = MIMUReading::Zero();
+    mimu.readiInto(reading);
+    mimu_calibrator.calibrate(reading);
+    orientation = mimu_fusion.fuse(reading);
+
+    accl.set(0, reading.accl.x);
+    accl.set(1, reading.accl.y);
+    accl.set(2, reading.accl.z);
+
+    gyro.set(0, reading.gyro.x);
+    gyro.set(1, reading.gyro.y);
+    gyro.set(2, reading.gyro.z);
+
+    magn.set(0, reading.magn.x);
+    magn.set(1, reading.magn.y);
+    magn.set(2, reading.magn.z);
+
+    quat.set(0, orientation.w);
+    quat.set(1, orientation.x);
+    quat.set(2, orientation.y);
+    quat.set(3, orientation.z);
 }
 // @
 ```

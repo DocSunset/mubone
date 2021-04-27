@@ -4,7 +4,7 @@ The mubone firmware is an Arduino sketch. The main logic is seperated out into
 template functions:
 
 ```c++
-// @#'mubone_firmware.ino'
+// @#'mcu/mcu.ino'
 @{includes}
 
 @{global defintions}
@@ -38,7 +38,7 @@ for sending debug information and error messages.
 #include "OSCBundle.h"
 // @
 
-// @+'read sensors'
+// @='declare OSC bundles'
 static OSCBundle bundle;
 static OSCBundle error_messages;
 // @
@@ -91,6 +91,8 @@ pinMode(joystick_pin_y, INPUT);
 
 // @+'read sensors'
 static OSCMessage joystick = bundle.add("/mubone/joystick");
+joystick.set(0, analogRead(joystick_pin_x));
+joystick.set(1, analogRead(joystick_pin_y));
 // @
 ```
 

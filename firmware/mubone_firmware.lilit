@@ -16,7 +16,7 @@ void setup()
 
 void loop()
 {
-    OSCBundle error_messages;
+    @{declare OSC bundles}
     @{read sensors}
     @{receive OSC messages}
     @{dispatch OSC messages}
@@ -30,7 +30,8 @@ void loop()
 All of the sensor readings are packed into an OSC bundle which is periodically
 sent to the network via the attached ESP8266. The bundle is declared static
 in the loop function and reused every loop so that memory only has to be
-allocated for it once, the first time the loop runs. 
+allocated for it once, the first time the loop runs. A bundle is also declared
+for sending debug information and error messages.
 
 ```c++
 // @+'includes'
@@ -39,6 +40,7 @@ allocated for it once, the first time the loop runs.
 
 // @+'read sensors'
 static OSCBundle bundle;
+static OSCBundle error_messages;
 // @
 ```
 
@@ -51,31 +53,22 @@ producing a logical low value.
 
 ```c++
 // @+'global definitions'
-struct Button
-{
-    const int pin;
-
-    constexpr Button(const int p) : pin{p} {}
-
-    void setup() const
-    {
-        pinMode(pin, INPUT_PULLUP);
-    }
-
-    void read(OSCBundle& bundle) const
-    {
-    }
-}
-
-constexpr Button buttons[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+constexpr int num_buttons = 8;
+constexpr int button_pins[num_buttons] = {1, 2, 3, 4, 5, 6, 7, 8};
 // @
 
 // @+'sensors setup'
-for (const auto& button : buttons) button.setup();
+for (const auto& pin : button_pins) pinMode(pin, INPUT_PULLUP);
 // @
 
 // @+'read sensors'
-for (const auto& button: buttons) button.read(bundle);
+static OSCMessage& buttons = bundle.add("/mubone/buttons");
+for (int i = 0; i < num_buttons; ++i) 
+{
+    const int pin = button_pins[i];
+    const int reading = digitalRead(pin);
+    buttons.set(i, reading);
+}
 // @
 ```
 
@@ -87,35 +80,17 @@ library to read from the MCU's ADC.
 
 ```c++
 // @+'global definitions'
-struct Joystick
-{
-    const int pin_x;
-    const int pin_y;
-
-    constexpr Joystick(const int x, const int y) : pin_x{x}, pin_y{y} {}
-
-    void setup() const
-    {
-        pinMode(pin_x, INPUT);
-        pinMode(pin_y, INPUT);
-    }
-
-    void read(OSCBundle& bundle) const
-    {
-        int x = analogRead(pin_x);
-        int y = analogRead(pin_y);
-    }
-}
-
-constexpr Joystick joystick{1, 2};
+constexpr int joystick_pin_x = 1;
+xonstexpr int joystick_pin_y = 2;
 // @
 
 // @+'sensors setup'
-joystick.setup();
+pinMode(joystick_pin_x, INPUT);
+pinMode(joystick_pin_y, INPUT);
 // @
 
 // @+'read sensors'
-joystick.read(bundle);
+static OSCMessage joystick = bundle.add("/mubone/joystick");
 // @
 ```
 

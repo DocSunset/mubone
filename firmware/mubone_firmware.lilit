@@ -11,6 +11,7 @@ template functions:
 void setup()
 {
     @{comms setup}
+
     @{sensors setup}
 }
 
@@ -263,11 +264,56 @@ static OSCMessage& quat = bundle.add("/mubone/quat");
 // @
 ```
 
-## setting the zero positions
+## SLIP serial
 
+OSC messages are exchanged with the wireless controller via a SLIP-encoded
+serial stream. Setup is very simple.
 
+```c++
+// @+'includes'
+#include "SLIPEncodedUSBSerial.h"
+// @
+
+// @+'global definitions'
+SLIPEncodedUSBSerial serial{Serial};
+
+// @
+
+// @+'comms setup'
+serial.begin(9600); // TODO: set this to the max
+// @
+
+## sending OSC output
+
+This is very simple using the OSC library. Start packet, send packet, end
+packet.  The error messages bundle is only sent if there are error messages to
+send.
+
+// @='transmit OSC messages'
+serial.beginPacket();
+bundle.send(serial);
+serial.endPacket();
+
+if (error_message.size() > 0)
+{
+    serial.beginPacket();
+    error_messages.send(serial);
+    serial.endPacket();
+}
+// @
+```
 
 ## receiving OSC inputs
+
+OSC messages are received via t
+
+```c++
+// @='receive OSC messages'
+
+// @
+```
+
+## setting the zero positions
 
 
 

@@ -181,24 +181,28 @@ the MIMU libraries.
 
 ```c++
 // @+'includes'
-#include "MIMU.h"
+#include "MIMU_MPU9250.h"
+#include "MIMUCalibrator.h"
+#include "MIMUFusion.h"
 // @
 
 // @+'global definitions'
-MIMU mimu(backend, address, Wire);
+MIMU_MPU9250 mimu();
+MIMUCalibrationConstants mimu_calibration{};
 MIMUCalibrator mimu_calibrator{};
-MIMUFusion mimu_fusion{};
+MIMUFusioniFilter mimu_filter{};
+Quaternion orientation = Quaternion::Identity();
 // @
 
 // @+'sensors setup'
-
+mimu.setup();
+mimu_calibrator.setCalibration(mimu_calibration);
 // @
 
 // @+'read sensors'
 {
-    static MIMUReading mimu_reading{};
-    static Quaternion orientation = Quaternion::Zero;
-    mimu.read(mimu_reading);
+    static MIMUReading mimu_reading = MIMUReading::Zero();
+    mimu.readiInto(mimu_reading);
     mimu_calibrator.calibrate(mimu_reading);
     orientation = mimu_fusion.fuse(mimu_reading);
 }

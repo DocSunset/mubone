@@ -1,6 +1,6 @@
 # mubone firmware
 
-The mubone firmware is an Arduino sketch. The main logic is seperated out into
+The mubone firmware is an Arduino sketch. The main logic is separated out into
 template functions:
 
 ```c++
@@ -10,7 +10,7 @@ template functions:
 @{global definitions}
 void setup()
 {
-    Wire.begin();
+    @{comms setup}
     @{sensors setup}
 }
 
@@ -30,8 +30,13 @@ void loop()
 All of the sensor readings are packed into an OSC bundle which is periodically
 sent to the network via the attached ESP8266. The bundle is declared static
 in the loop function and reused every loop so that memory only has to be
-allocated for it once, the first time the loop runs. A bundle is also declared
-for sending debug information and error messages.
+allocated for it once, the first time the loop runs. 
+
+A bundle is also declared for sending debug information and error messages. This
+one is not statically declared, so memory has to be allocated and released
+any time an error message is added to the bundle. It is assumed that there will
+not be very many error messages, and that the performance impact associated
+with their memory management will thus be negligible. 
 
 ```c++
 // @+'includes'
@@ -40,7 +45,26 @@ for sending debug information and error messages.
 
 // @='declare OSC bundles'
 static OSCBundle bundle;
-static OSCBundle error_messages;
+OSCBundle error_messages;
+// @
+```
+
+As seen below, each message that needs to be sent is statically declared in the
+loop function and initialized by calling `bundle.add(address)` with the
+appropriate address. This ensures that messages are only allocated once.
+
+The `error_messages` bundle is cleared at the end of the loop after transmitting
+OSC messages. 
+
+## I2C
+
+The Arduino Wire library is used to interact with the I2C bus. All of the I2C
+sensors use the default global Wire instance, so not much is needed to get
+things up and running.
+
+```c++
+// @+'comms setup'
+Wire.begin();
 // @
 ```
 
@@ -105,7 +129,7 @@ joystick.set(1, analogRead(joystick_pin_y));
 ## ADS1219 sensors
 
 The slide position sensor, rotator, u-joint, and trigger use ADS1219 ADCs. Most
-of the tricky parts of working with the ADC are handled by a seperate library.
+of the tricky parts of working with the ADC are handled by a separate library.
 The firmware has to keep track of which channel of the ADC is being read, and
 has to manually cycle through the channels. The handling is very similar for
 the slide position sensor (sps) and the sensors that share the other ADS1219.

@@ -275,12 +275,12 @@ serial stream. Setup is very simple.
 // @
 
 // @+'global definitions'
-SLIPEncodedUSBSerial serial{Serial};
+SLIPEncodedUSBSerial slipserial{Serial};
 
 // @
 
 // @+'comms setup'
-serial.begin(9600); // TODO: set this to the max
+slipserial.begin(9600); // TODO: set this to the max
 // @
 
 ## sending OSC output
@@ -290,34 +290,116 @@ packet.  The error messages bundle is only sent if there are error messages to
 send.
 
 // @='transmit OSC messages'
-serial.beginPacket();
-bundle.send(serial);
-serial.endPacket();
+slipserial.beginPacket();
+bundle.send(slipserial);
+slipserial.endPacket();
 
 if (error_message.size() > 0)
 {
-    serial.beginPacket();
-    error_messages.send(serial);
-    serial.endPacket();
+    slipserial.beginPacket();
+    error_messages.send(slipserial);
+    slipserial.endPacket();
 }
 // @
 ```
 
 ## receiving OSC inputs
 
-OSC messages are received via t
+Somewhat more involved that sending, receiving OSC requires some book keeping
+to deal with both messages and bundles, and to avoid blocking the main loop.
+
+First of all: the MCU may in principle receive a single message or a bundle of
+messages in any given SLIP packet. To deal with either case, both a bundle and
+a message must be declared. 
 
 ```c++
 // @='receive OSC messages'
+static OSCBundle bundle_in;
+static OSCMessage msg_in;
 
 // @
 ```
+
+Initially, no packet is in progress and both the message `msg_in` and the
+bundle `bundle_in` are empty. In this case, when bytes start coming in the very
+first byte can be checked to determine if a bundle is incoming, since it will
+be a `#` character. For any other first byte, we can assume that the incoming
+packet is a message. We use an enumeration to keep track of the current state.
+
+```c++
+// @+'global definitions'
+enum OSCReceiveState {waiting, message, bundle};
+// @
+
+// @+'receive OSC messages'
+static OSCReceiveState state = waiting;
+if (state == waiting)
+{
+    if (slipserial.available())
+    {
+        if (slipserial.peek() == '#') state = bundle;
+        else state = message;
+    }
+}
+
+if      (state == message) state = osc_receive(msg_in, state);
+else if (state == bundle)  state = osc_receive(bundle_in, state);
+// @
+```
+
+Because serial lines are not inherently packet-oriented, it's possible that
+parts of a packet may arrive over the course of several loops. Rather than
+block the loop waiting for the end of the packet, the strategy is to read as
+much as there is available and then move on. 
+
+The code is the same for receiving messages as it is for receiving bundles, so
+we use a template function to avoid having to repeat ourselves. This function
+will call out to `osc_dispatch` when the container being filled is full
+(presumably at the end of the packet) and then return `waiting` state.
+Otherwise it returns the initial state so that the container will keep being
+filled on the next loop.
+
+```c++
+// @+'global definitions'
+template<class OSCContainer>
+OSCReceiveState osc_receive(OSCContainer& osc, OSCReceiveState initial_state)
+{
+    int size = slipserial.available();
+    while(size--)
+    {
+        osc.fill(slipserial.read());
+        if (slipserial.endofPacket())
+        {
+            osc_dispatch(osc);
+            return waiting;
+        }
+    }
+    return initial_state;
+}
+// @
+```
+
+The dispatch function for bundles simply calls the dispatch function for messages.
+
+```c++
+// @+'global definitions'
+template<class T>
+void osc_dispatch(T& osc)
+{
+}
+```
+
+The message dispatcher 
 
 ## setting the zero positions
 
 
 
 ## updating calibration
+
+
+
+## aligning the orientation sensor
 
 
 

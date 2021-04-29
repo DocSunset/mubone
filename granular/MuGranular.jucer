@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="NcJlO3" name="MuGranular" projectType="guiapp" jucerVersion="5.4.1"
+              reportAppUsage="0" version="0.0.5" cppLanguageStandard="17">
+  <MAINGROUP id="vM1d1w" name="MuGranular">
+    <GROUP id="{6801AAEA-3F0A-B082-4FE8-40CD340BE24E}" name="Test">
+      <FILE id="DCUJzA" name="cloud.cpp" compile="1" resource="0" file="Test/cloud.cpp"/>
+      <GROUP id="{544322E5-7840-2165-4171-E6F223C741A0}" name="Test"/>
+      <FILE id="E40Rqv" name="audiosphere.cpp" compile="1" resource="0" file="Test/audiosphere.cpp"/>
+      <FILE id="ntK0Vk" name="grain.cpp" compile="1" resource="0" file="Test/grain.cpp"/>
+      <FILE id="BDf4nB" name="list.cpp" compile="1" resource="0" file="Test/list.cpp"/>
+      <FILE id="J55y5o" name="window.cpp" compile="1" resource="0" file="Test/window.cpp"/>
+      <FILE id="ViePZE" name="soundobjectlist.cpp" compile="1" resource="0"
+            file="Test/soundobjectlist.cpp"/>
+      <FILE id="jRvChl" name="soundobject.cpp" compile="1" resource="0" file="Test/soundobject.cpp"/>
+      <FILE id="Ud4FBp" name="catch.hpp" compile="0" resource="0" file="Test/catch.hpp"/>
+    </GROUP>
+    <GROUP id="{BA281CFC-B598-D8D8-E922-16CA98493E5F}" name="Source">
+      <FILE id="RwOpko" name="audiosphere.cpp" compile="1" resource="0" file="Source/audiosphere.cpp"/>
+      <FILE id="m9GmxG" name="audiosphere.h" compile="0" resource="0" file="Source/audiosphere.h"/>
+      <FILE id="sRP9aK" name="cloud.cpp" compile="1" resource="0" file="Source/cloud.cpp"/>
+      <FILE id="NDyZQ6" name="cloud.h" compile="0" resource="0" file="Source/cloud.h"/>
+      <FILE id="A5p8Gb" name="cloudmanager.h" compile="0" resource="0" file="Source/cloudmanager.h"/>
+      <FILE id="YyX4go" name="displaycomponents.h" compile="0" resource="0"
+            file="Source/displaycomponents.h"/>
+      <FILE id="DNXK8C" name="gesturemodel.hpp" compile="0" resource="0"
+            file="Source/gesturemodel.hpp"/>
+      <FILE id="qk2HWv" name="grain.h" compile="0" resource="0" file="Source/grain.h"/>
+      <FILE id="cFwROb" name="linalgtypes.h" compile="0" resource="0" file="Source/linalgtypes.h"/>
+      <FILE id="bBWrfm" name="list.hpp" compile="0" resource="0" file="Source/list.hpp"/>
+      <FILE id="a4tDFs" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="guWZxn" name="MainComponent.cpp" compile="1" resource="0"
+            file="Source/MainComponent.cpp"/>
+      <FILE id="xLsmWj" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
+      <FILE id="r0Trrv" name="oscreceiver.hpp" compile="0" resource="0" file="Source/oscreceiver.hpp"/>
+      <FILE id="zBXvV8" name="parameters.hpp" compile="0" resource="0" file="Source/parameters.hpp"/>
+      <FILE id="pBdDrc" name="repeatermacro.h" compile="0" resource="0" file="Source/repeatermacro.h"/>
+      <FILE id="gwOoE4" name="sensorreceiver.hpp" compile="0" resource="0"
+            file="Source/sensorreceiver.hpp"/>
+      <FILE id="fVBjCJ" name="signal.hpp" compile="0" resource="0" file="Source/signal.hpp"/>
+      <FILE id="QBDVLR" name="soundobject.h" compile="0" resource="0" file="Source/soundobject.h"/>
+      <FILE id="c89qwI" name="soundobjectlist.cpp" compile="1" resource="0"
+            file="Source/soundobjectlist.cpp"/>
+      <FILE id="sUDJIK" name="soundobjectlist.h" compile="0" resource="0"
+            file="Source/soundobjectlist.h"/>
+      <FILE id="biBjAt" name="synthesisreceiver.hpp" compile="0" resource="0"
+            file="Source/synthesisreceiver.hpp"/>
+      <FILE id="a4pQfW" name="window.cpp" compile="1" resource="0" file="Source/window.cpp"/>
+      <FILE id="zMfCH5" name="window.h" compile="0" resource="0" file="Source/window.h"/>
+    </GROUP>
+  </MAINGROUP>
+  <EXPORTFORMATS>
+    <XCODE_MAC targetFolder="Builds/MacOSX" microphonePermissionNeeded="1" extraCompilerFlags="-I/Users/westerncompass/_Repos/Github/readerwriterqueue&#10;-I/usr/local/include"
+               keepCustomXcodeSchemes="1" frameworkSearchPaths="/usr/local/lib/"
+               extraLinkerFlags="-L/usr/local/lib">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="0" name="Release" osxCompatibility="10.12 SDK"/>
+        <CONFIGURATION isDebug="1" name="Debug" defines="RUNTESTS=1" osxCompatibility="10.12 SDK"/>
+        <CONFIGURATION isDebug="0" name="ReleaseTest" defines="RUNTESTS=1" osxCompatibility="10.12 SDK"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../../../Applications/JUCE/modules"/>
+        <MODULEPATH id="juce_osc" path="../../../../Applications/JUCE/modules"/>
+      </MODULEPATHS>
+    </XCODE_MAC>
+  </EXPORTFORMATS>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_osc" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+  <LIVE_SETTINGS>
+    <OSX buildEnabled="0"/>
+  </LIVE_SETTINGS>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>
+</JUCERPROJECT>

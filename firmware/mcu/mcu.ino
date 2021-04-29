@@ -3,12 +3,13 @@
 #include "MIMU_MPU9250.h"
 #include "MIMUCalibrator.h"
 #include "MIMUFusion.h"
+#include "SLIPEncodedUSBSerial.h"
 
 constexpr int num_buttons = 8;
-constexpr int button_pins[num_buttons] = {1, 2, 3, 4, 5, 6, 7, 8};
+constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 10};
 
-constexpr int joystick_pin_x = 1;
-constexpr int joystick_pin_y = 2;
+constexpr int joystick_pin_x = A1;
+constexpr int joystick_pin_y = A0;
 
 using namespace ADS1219;
 
@@ -16,7 +17,7 @@ constexpr Address sps_address(ADDR0::DGND, ADDR1::DGND);
 ADS1219_ADC sps_adc(sps_address, Wire);
 constexpr MUX sps_channels[] = {MUX::AIN0_AIN1, MUX::AIN2_AIN3};
 
-constexpr Address misc_adc_address(ADDR0::DGND, ADDR1::DGND);
+constexpr Address misc_adc_address(ADDR0::DVDD, ADDR1::DGND);
 ADS1219_ADC misc_adc(misc_adc_address, Wire);
 constexpr MUX misc_channels[] = {MUX::AIN0, MUX::AIN1, MUX::AIN2, MUX::AIN3};
 
@@ -26,19 +27,44 @@ MIMUCalibrator mimu_calibrator{};
 MIMUFusionFilter mimu_filter{};
 Quaternion orientation = Quaternion::Identity();
 
+SLIPEncodedUSBSerial slipserial{Serial};
+
+enum OSCInState {WAITING, MESSAGE, BUNDLE};
+
+template<class OSCContainer>
+OSCInState osc_receive(OSCContainer& osc, OSCInState initial_state)
+{
+    int size = slipserial.available();
+    while(size--)
+    {
+        osc.fill(slipserial.read());
+        if (slipserial.endofPacket())
+        {
+            osc_dispatch(osc);
+            return WAITING;
+        }
+    }
+    return initial_state;
+}
+template<class T>
+void osc_dispatch(T& osc)
+{
+}
 void setup()
 {
     Wire.begin();
+slipserial.begin(9600); // TODO: set this to the max
+
     for (const auto& pin : button_pins) pinMode(pin, INPUT_PULLUP);
     
-    pinMode(joystick_pin_x, INPUT);
+pinMode(joystick_pin_x, INPUT);
     pinMode(joystick_pin_y, INPUT);
     
-    sps_adc.set_config( MUX::AIN0_AIN1
-                      , RATE::SPS1000
-                      , MODE::CONTINUOUS
-                      , VREF::EXTERN
-                      );
+sps_adc.set_config( MUX::AIN0_AIN1
+                  , RATE::SPS1000
+                  , MODE::CONTINUOUS
+                  , VREF::EXTERN
+                  );
     sps_adc.start_conversion();
     
     misc_adc.set_config( MUX::AIN0
@@ -48,7 +74,7 @@ void setup()
                   );
     misc_adc.start_conversion();
     
-    mimu.setup();
+mimu.setup();
     mimu_calibrator.setCalibration(mimu_calibration);
     
 }
@@ -56,7 +82,7 @@ void setup()
 void loop()
 {
     static OSCBundle bundle;
-    static OSCBundle error_messages;
+    OSCBundle error_messages;
     static OSCMessage& buttons = bundle.add("/mubone/buttons");
     for (int i = 0; i < num_buttons; ++i) 
     {
@@ -65,11 +91,11 @@ void loop()
         buttons.set(i, reading);
     }
     
-    static OSCMessage joystick = bundle.add("/mubone/joystick");
+static OSCMessage& joystick = bundle.add("/mubone/joystick");
     joystick.set(0, analogRead(joystick_pin_x));
     joystick.set(1, analogRead(joystick_pin_y));
     
-    static OSCMessage& sps = bundle.add("/mubone/slide_position");
+static OSCMessage& sps = bundle.add("/mubone/slide_position");
     {
         static int pot = 0;
         if (sps_adc.data_ready())
@@ -99,7 +125,7 @@ void loop()
         }
     }
     
-    static OSCMessage& accl = bundle.add("/mubone/accl");
+static OSCMessage& accl = bundle.add("/mubone/accl");
     static OSCMessage& gyro = bundle.add("/mubone/gyro");
     static OSCMessage& magn = bundle.add("/mubone/magn");
     static OSCMessage& quat = bundle.add("/mubone/quat");
@@ -125,5 +151,32 @@ void loop()
         quat.set(1, orientation.x());
         quat.set(2, orientation.y());
         quat.set(3, orientation.z());
+    }
+    
+    static OSCBundle bundle_in;
+    static OSCMessage msg_in;
+    
+static OSCInState state = WAITING;
+    if (state == WAITING)
+    {
+        if (slipserial.available())
+        {
+            if (slipserial.peek() == '#') state = BUNDLE;
+            else state = MESSAGE;
+        }
+    }
+    
+    if      (state == MESSAGE) state = osc_receive(msg_in, state);
+    else if (state == BUNDLE)  state = osc_receive(bundle_in, state);
+    
+    slipserial.beginPacket();
+    bundle.send(slipserial);
+    slipserial.endPacket();
+    
+    if (error_messages.size() > 0)
+    {
+        slipserial.beginPacket();
+        error_messages.send(slipserial);
+        slipserial.endPacket();
     }
 }

@@ -79,7 +79,7 @@ producing a logical low value.
 ```c++
 // @+'global definitions'
 constexpr int num_buttons = 8;
-constexpr int button_pins[num_buttons] = {1, 2, 3, 4, 5, 6, 7, 8};
+constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 10};
 
 // @
 
@@ -108,8 +108,8 @@ library to read from the MCU's ADC.
 
 ```c++
 // @+'global definitions'
-constexpr int joystick_pin_x = 1;
-constexpr int joystick_pin_y = 2;
+constexpr int joystick_pin_x = A1;
+constexpr int joystick_pin_y = A0;
 
 // @
 
@@ -120,7 +120,7 @@ pinMode(joystick_pin_y, INPUT);
 // @
 
 // @+'read sensors'
-static OSCMessage joystick = bundle.add("/mubone/joystick");
+static OSCMessage& joystick = bundle.add("/mubone/joystick");
 joystick.set(0, analogRead(joystick_pin_x));
 joystick.set(1, analogRead(joystick_pin_y));
 
@@ -147,7 +147,7 @@ constexpr Address sps_address(ADDR0::DGND, ADDR1::DGND);
 ADS1219_ADC sps_adc(sps_address, Wire);
 constexpr MUX sps_channels[] = {MUX::AIN0_AIN1, MUX::AIN2_AIN3};
 
-constexpr Address misc_adc_address(ADDR0::DGND, ADDR1::DGND);
+constexpr Address misc_adc_address(ADDR0::DVDD, ADDR1::DGND);
 ADS1219_ADC misc_adc(misc_adc_address, Wire);
 constexpr MUX misc_channels[] = {MUX::AIN0, MUX::AIN1, MUX::AIN2, MUX::AIN3};
 
@@ -294,7 +294,7 @@ slipserial.beginPacket();
 bundle.send(slipserial);
 slipserial.endPacket();
 
-if (error_message.size() > 0)
+if (error_messages.size() > 0)
 {
     slipserial.beginPacket();
     error_messages.send(slipserial);
@@ -328,22 +328,23 @@ packet is a message. We use an enumeration to keep track of the current state.
 
 ```c++
 // @+'global definitions'
-enum OSCReceiveState {waiting, message, bundle};
+enum OSCInState {WAITING, MESSAGE, BUNDLE};
+
 // @
 
 // @+'receive OSC messages'
-static OSCReceiveState state = waiting;
-if (state == waiting)
+static OSCInState state = WAITING;
+if (state == WAITING)
 {
     if (slipserial.available())
     {
-        if (slipserial.peek() == '#') state = bundle;
-        else state = message;
+        if (slipserial.peek() == '#') state = BUNDLE;
+        else state = MESSAGE;
     }
 }
 
-if      (state == message) state = osc_receive(msg_in, state);
-else if (state == bundle)  state = osc_receive(bundle_in, state);
+if      (state == MESSAGE) state = osc_receive(msg_in, state);
+else if (state == BUNDLE)  state = osc_receive(bundle_in, state);
 // @
 ```
 
@@ -362,7 +363,7 @@ filled on the next loop.
 ```c++
 // @+'global definitions'
 template<class OSCContainer>
-OSCReceiveState osc_receive(OSCContainer& osc, OSCReceiveState initial_state)
+OSCInState osc_receive(OSCContainer& osc, OSCInState initial_state)
 {
     int size = slipserial.available();
     while(size--)
@@ -371,7 +372,7 @@ OSCReceiveState osc_receive(OSCContainer& osc, OSCReceiveState initial_state)
         if (slipserial.endofPacket())
         {
             osc_dispatch(osc);
-            return waiting;
+            return WAITING;
         }
     }
     return initial_state;
@@ -387,6 +388,7 @@ template<class T>
 void osc_dispatch(T& osc)
 {
 }
+// @
 ```
 
 The message dispatcher 

@@ -51,7 +51,7 @@ OSCBundle error_messages;
 // @
 
 // @+'read sensors'
-OSCBundle bundle;
+static OSCBundle bundle;
 
 // @
 ```

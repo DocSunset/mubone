@@ -10,7 +10,7 @@ OSCBundle error_messages;
 SLIPEncodedUSBSerial slipserial{Serial};
 
 constexpr int num_buttons = 8;
-constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 13};
+constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 11};
 
 constexpr int joystick_pin_x = A1;
 constexpr int joystick_pin_y = A0;

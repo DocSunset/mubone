@@ -18,7 +18,6 @@ void loop()
 {
     @{read sensors}
     @{receive OSC messages}
-    @{dispatch OSC messages}
     @{transmit OSC messages}
 }
 // @
@@ -60,6 +59,25 @@ OSCBundle bundle;
 As seen below, each message that needs to be sent is statically declared in the
 loop function and initialized by calling `bundle.add(address)` with the
 appropriate address. This ensures that messages are only allocated once.
+
+## SLIP serial
+
+OSC messages are exchanged with the wireless controller via a SLIP-encoded
+serial stream. Setup is very simple.
+
+```c++
+// @+'includes'
+#include "SLIPEncodedUSBSerial.h"
+// @
+
+// @+'global definitions'
+SLIPEncodedUSBSerial slipserial{Serial};
+
+// @
+
+// @+'comms setup'
+slipserial.begin(9600); // TODO: set this to the max
+// @
 
 ## I2C
 
@@ -293,14 +311,14 @@ void mimu_initialize()
     mimu_calibrator.calibrate(reading);
     orientation = mimu_filter.initializeFrom(reading.accl, reading.magn);
     
-    float originalkp = filter.fc.k_P; // save current proportional feedback
+    float originalkp = mimu_filter.fc.k_P; // save current proportional feedback
     mimu_filter.fc.k_P = 21; // crank it up past 11
 
     // tick for 1.5s
     float start = millis();
-    for (float dt = 0; dt < 1500; dt = millis() - start) tick();
+    for (float dt = 0; dt < 1500; dt = millis() - start) mimu_tick();
 
-    filter.fc.k_P = originalkp; // reset k_P
+    mimu_filter.fc.k_P = originalkp; // reset k_P
 }
 // @
 
@@ -339,7 +357,7 @@ of the mubone's y-axis from the sensor's frame of reference.
 // @+'global definitions'
     delay(2000);
     reading = mimu.readForMillis(3000);
-    calibr.calibrate(reading);
+    mimu_calibrator.calibrate(reading);
     Vector ybasis(reading.accl);
 // @
 ```
@@ -359,32 +377,74 @@ contants.
 // @+'global definitions'
     delay(2000);
     reading = mimu.readForMillis(3000);
-    calibr.calibrate(reading);
+    mimu_calibrator.calibrate(reading);
     Vector zbasis(reading.accl);
 
     mimu_calibrator.setAlignment(ybasis, zbasis);
 } 
+
 // @
 ```
 
-## SLIP serial
+### calibrating the orientation sensor
 
-OSC messages are exchanged with the wireless controller via a SLIP-encoded
-serial stream. Setup is very simple.
+In case the user needs to calibrate the MIMU sensor there is significantly less
+work to do. The following subroutine performs a minimal loop reading from the
+orientation sensor and sending the un-calibrated raw data to the network for
+analysis by calibration software. Pressing any of the buttons on the device
+cancels calibration mode and breaks out of the loop, returning execution to
+the normal flow.
 
 ```c++
-// @+'includes'
-#include "SLIPEncodedUSBSerial.h"
-// @
-
 // @+'global definitions'
-SLIPEncodedUSBSerial slipserial{Serial};
+void mimu_calibrate()
+{
+    OSCBundle bundle;
+    while (true)
+    {
+        for (int i = 0; i < num_buttons; ++i) 
+        {
+            if (digitalRead(button_pins[i]) == 0) break;
+        }
+        static OSCMessage& msg = bundle.add("/raw");
+        mimu.readInto(reading);
+        reading.updateBuffer();
+        for (int i = 0; i < 9; ++i)
+        {
+            msg.set(i, reading.data[i]);
+        }
+        @{transmit OSC messages}
+        while (slipserial.available()) slipserial.read(); // ignore incoming messages
+    }
+}
 
 // @
+```
 
-// @+'comms setup'
-slipserial.begin(9600); // TODO: set this to the max
+## setting the sensors' zero points
+
+In most use cases, the orientation of the mubone in relative to the global
+frame of reference is actually not meaningful; rather, the orientation relative
+to a local frame of reference (e.g. the stage) is needed. This local frame is
+typically a rotation of the global frame. Zeroing the orientation sensor allows
+the orientation output to be rotated into the local frame of reference by
+setting the orientation in which the mubone is aligned with the local y-axis
+(e.g. when facing the audience). 
+
+A somewhat related concept, the slide position sensor's output is accumulated
+over time to provide an estimate of the slide position based on the rotation of
+the string potentiometers. Zeroing the slide position sensor resets the current
+position estimate to zero (usually with the slide fully retracted).
+
+Both of these tasks are performed by the following subroutine:
+
+```c++
+// @+'global definitions'
+void zero_sensors()
+{
+}
 // @
+```
 
 ## sending OSC output
 
@@ -427,12 +487,15 @@ Initially, no packet is in progress and both the message `msg_in` and the
 bundle `bundle_in` are empty. In this case, when bytes start coming in the very
 first byte can be checked to determine if a bundle is incoming, since it will
 be a `#` character. For any other first byte, we can assume that the incoming
-packet is a message. We use an enumeration to keep track of the current state.
+packet is a message. 
+
+We use an enumeration to keep track of the current state. This is appended to
+the includes block to ensure the definition is available when the `osc_receive`
+template described later is instantiated.
 
 ```c++
-// @+'global definitions'
+// @+'includes'
 enum OSCInState {WAITING, MESSAGE, BUNDLE};
-
 // @
 
 // @+'receive OSC messages'
@@ -520,12 +583,12 @@ void osc_dispatch(OSCMessage& msg)
     else if (msg.fullMatch("/initialize")) mimu_initialize();
     else if (msg.fullMatch("/align")) mimu_align();
     else if (msg.fullMatch("/calibrate")) mimu_calibrate();
-    else if (msg.fullMatch("/calibration/accl/matrix")) set_floats(&mimu_calibrator.cc.acclcalibration.data(), msg, 9);
-    else if (msg.fullMatch("/calibration/gyro/matrix")) set_floats(&mimu_calibrator.cc.gyrocalibration.data(), msg, 9);
-    else if (msg.fullMatch("/calibration/magn/matrix")) set_floats(&mimu_calibrator.cc.magncalibration.data(), msg, 9);
-    else if (msg.fullMatch("/calibration/accl/vector")) set_floats(&mimu_calibrator.cc.abias.data(), msg, 3);
-    else if (msg.fullMatch("/calibration/gyro/vector")) set_floats(&mimu_calibrator.cc.gbias.data(), msg, 3);
-    else if (msg.fullMatch("/calibration/magn/vector")) set_floats(&mimu_calibrator.cc.mbias.data(), msg, 3);
+    else if (msg.fullMatch("/calibration/accl/matrix")) set_floats(mimu_calibrator.cc.acclcalibration.data(), msg, 9);
+    else if (msg.fullMatch("/calibration/gyro/matrix")) set_floats(mimu_calibrator.cc.gyrocalibration.data(), msg, 9);
+    else if (msg.fullMatch("/calibration/magn/matrix")) set_floats(mimu_calibrator.cc.magncalibration.data(), msg, 9);
+    else if (msg.fullMatch("/calibration/accl/vector")) set_floats(mimu_calibrator.cc.abias.data(), msg, 3);
+    else if (msg.fullMatch("/calibration/gyro/vector")) set_floats(mimu_calibrator.cc.gbias.data(), msg, 3);
+    else if (msg.fullMatch("/calibration/magn/vector")) set_floats(mimu_calibrator.cc.mbias.data(), msg, 3);
     else if (msg.fullMatch("/filter_coefficients/k_P")) set_floats(&mimu_filter.fc.k_P, msg);
     else if (msg.fullMatch("/filter_coefficients/k_I")) set_floats(&mimu_filter.fc.k_I, msg);
     else if (msg.fullMatch("/filter_coefficients/k_a")) set_floats(&mimu_filter.fc.k_a, msg);
@@ -538,14 +601,6 @@ void osc_dispatch(OSCMessage& msg)
 The message dispatcher 
 
 ## setting the zero positions
-
-
-
-## updating calibration
-
-
-
-## aligning the orientation sensor
 
 
 

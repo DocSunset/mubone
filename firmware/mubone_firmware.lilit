@@ -1,8 +1,5 @@
 # mubone firmware
 
-The mubone firmware is an Arduino sketch. The main logic is separated out into
-template functions:
-
 ```c++
 // @#'mcu/mcu.ino'
 @{includes}
@@ -19,7 +16,6 @@ void setup()
 
 void loop()
 {
-    @{declare OSC bundles}
     @{read sensors}
     @{receive OSC messages}
     @{dispatch OSC messages}
@@ -31,33 +27,39 @@ void loop()
 ## OSC
 
 All of the sensor readings are packed into an OSC bundle which is periodically
-sent to the network via the attached ESP8266. The bundle is declared static
-in the loop function and reused every loop so that memory only has to be
-allocated for it once, the first time the loop runs. 
+sent to the network via the attached ESP8266. The bundle is declared globally
+and reused every loop so that memory only has to be allocated for it once, the
+first time the loop runs. 
 
-A bundle is also declared for sending debug information and error messages. This
-one is not statically declared, so memory has to be allocated and released
-any time an error message is added to the bundle. It is assumed that there will
-not be very many error messages, and that the performance impact associated
-with their memory management will thus be negligible. 
+A bundle is also declared for sending debug information and error messages.
+This one is cleared at the end of the loop function after transmitting OSC
+messages, so memory has to be allocated and released any time an error message
+is added to the bundle. It is assumed that there will not be very many error
+messages, and that the performance impact associated with their memory
+management will thus be negligible. 
+
+The error message bundle has to be global so that subroutines can add error
+messages to the bundle. The sensor bundle on the other hand is declared
+statically before reading sensors.
 
 ```c++
 // @+'includes'
 #include "OSCBundle.h"
 // @
 
-// @='declare OSC bundles'
-static OSCBundle bundle;
+// @+'global definitions'
 OSCBundle error_messages;
+// @
+
+// @+'read sensors'
+OSCBundle bundle;
+
 // @
 ```
 
 As seen below, each message that needs to be sent is statically declared in the
 loop function and initialized by calling `bundle.add(address)` with the
 appropriate address. This ensures that messages are only allocated once.
-
-The `error_messages` bundle is cleared at the end of the loop after transmitting
-OSC messages. 
 
 ## I2C
 
@@ -81,7 +83,7 @@ producing a logical low value.
 ```c++
 // @+'global definitions'
 constexpr int num_buttons = 8;
-constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 10};
+constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 13};
 
 // @
 
@@ -91,7 +93,7 @@ for (const auto& pin : button_pins) pinMode(pin, INPUT_PULLUP);
 // @
 
 // @+'read sensors'
-static OSCMessage& buttons = bundle.add("/mubone/buttons");
+static OSCMessage& buttons = bundle.add("/buttons");
 for (int i = 0; i < num_buttons; ++i) 
 {
     const int pin = button_pins[i];
@@ -122,7 +124,7 @@ pinMode(joystick_pin_y, INPUT);
 // @
 
 // @+'read sensors'
-static OSCMessage& joystick = bundle.add("/mubone/joystick");
+static OSCMessage& joystick = bundle.add("/joystick");
 joystick.set(0, analogRead(joystick_pin_x));
 joystick.set(1, analogRead(joystick_pin_y));
 
@@ -173,7 +175,7 @@ misc_adc.start_conversion();
 // @
 
 // @+'read sensors'
-static OSCMessage& sps = bundle.add("/mubone/slide_position");
+static OSCMessage& sps = bundle.add("/slide_position");
 {
     static int pot = 0;
     if (sps_adc.data_ready())
@@ -186,10 +188,10 @@ static OSCMessage& sps = bundle.add("/mubone/slide_position");
     }
 }
 
-static OSCMessage * misc[4] = { &bundle.add("/mubone/misc1")
-                              , &bundle.add("/mubone/misc2")
-                              , &bundle.add("/mubone/misc3")
-                              , &bundle.add("/mubone/misc4")
+static OSCMessage * misc[4] = { &bundle.add("/trigger")
+                              , &bundle.add("/joint1")
+                              , &bundle.add("/joint2")
+                              , &bundle.add("/rotator")
                               };
 {
     static int pot = 0;
@@ -240,14 +242,15 @@ void mimu_tick()
 
 // @+'sensors setup'
 mimu.setup();
-
+mimu_calibrator.setup();
+mimu_filter.setup();
 // @
 
 // @+'read sensors'
-static OSCMessage& accl = bundle.add("/mubone/accl");
-static OSCMessage& gyro = bundle.add("/mubone/gyro");
-static OSCMessage& magn = bundle.add("/mubone/magn");
-static OSCMessage& quat = bundle.add("/mubone/quat");
+static OSCMessage& accl = bundle.add("/accl");
+static OSCMessage& gyro = bundle.add("/gyro");
+static OSCMessage& magn = bundle.add("/magn");
+static OSCMessage& quat = bundle.add("/quat");
 
 mimu_tick();
 

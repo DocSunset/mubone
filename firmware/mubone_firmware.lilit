@@ -13,6 +13,8 @@ void setup()
     @{comms setup}
 
     @{sensors setup}
+
+    @{initialize mimu filter}
 }
 
 void loop()
@@ -218,17 +220,26 @@ the MIMU libraries.
 // @
 
 // @+'global definitions'
-MIMU_MPU9250 mimu{};
-MIMUCalibrationConstants mimu_calibration{};
-MIMUCalibrator mimu_calibrator{};
-MIMUFusionFilter mimu_filter{};
+MIMU_MPU9250 mimu;
+MIMUCalibrator mimu_calibrator;
+MIMUFusionFilter mimu_filter;
+
+MIMUReading reading = MIMUReading::Zero();
 Quaternion orientation = Quaternion::Identity();
+
+void mimu_tick()
+{
+    if (mimu.readInto(reading))
+    {
+        mimu_calibrator.calibrate(reading);
+    }
+    orientation = mimu_filter.fuse(reading.accl, reading.gyro, reading.magn);
+}
 
 // @
 
 // @+'sensors setup'
 mimu.setup();
-mimu_calibrator.setCalibration(mimu_calibration);
 
 // @
 
@@ -237,30 +248,119 @@ static OSCMessage& accl = bundle.add("/mubone/accl");
 static OSCMessage& gyro = bundle.add("/mubone/gyro");
 static OSCMessage& magn = bundle.add("/mubone/magn");
 static OSCMessage& quat = bundle.add("/mubone/quat");
+
+mimu_tick();
+
+accl.set(0, reading.accl.x());
+accl.set(1, reading.accl.y());
+accl.set(2, reading.accl.z());
+
+gyro.set(0, reading.gyro.x());
+gyro.set(1, reading.gyro.y());
+gyro.set(2, reading.gyro.z());
+
+magn.set(0, reading.magn.x());
+magn.set(1, reading.magn.y());
+magn.set(2, reading.magn.z());
+
+quat.set(0, orientation.w());
+quat.set(1, orientation.x());
+quat.set(2, orientation.y());
+quat.set(3, orientation.z());
+
+// @
+```
+
+### initializing the orientation sensor fusion filter
+
+In some situations, such as after turning on the device, the orientation sensor
+fusion filter will have an internal state that differs significantly from the
+actual orientation of the sensor. In these situations, the filter can be
+initialized by setting the orientation close to the actual orientation and then
+running the filter for a moment with a very high proportional feedback
+coefficient. The following function performs this routine:
+
+```c++
+// @+'global definitions'
+void mimu_initialize()
 {
-    static MIMUReading reading = MIMUReading::Zero();
-    mimu.readInto(reading);
+    while (!mimu.readInto(reading)); // wait until data is ready
+
+    // initialize the orientation
     mimu_calibrator.calibrate(reading);
-    orientation = mimu_filter.fuse(reading.accl, reading.gyro, reading.magn);
+    orientation = mimu_filter.initializeFrom(reading.accl, reading.magn);
+    
+    float originalkp = filter.fc.k_P; // save current proportional feedback
+    mimu_filter.fc.k_P = 21; // crank it up past 11
 
-    accl.set(0, reading.accl.x());
-    accl.set(1, reading.accl.y());
-    accl.set(2, reading.accl.z());
+    // tick for 1.5s
+    float start = millis();
+    for (float dt = 0; dt < 1500; dt = millis() - start) tick();
 
-    gyro.set(0, reading.gyro.x());
-    gyro.set(1, reading.gyro.y());
-    gyro.set(2, reading.gyro.z());
-
-    magn.set(0, reading.magn.x());
-    magn.set(1, reading.magn.y());
-    magn.set(2, reading.magn.z());
-
-    quat.set(0, orientation.w());
-    quat.set(1, orientation.x());
-    quat.set(2, orientation.y());
-    quat.set(3, orientation.z());
+    filter.fc.k_P = originalkp; // reset k_P
 }
+// @
 
+This is called at the end of the `setup` routine.
+
+// @='initialize mimu filter'
+mimu_initialize();
+// @
+```
+
+### setting the orientation sensor alignment
+
+Tiny variances in the assembly of the circuit boards, mechanical parts, and
+mounting of the mubone augmentations to the slide can lead to the alignment
+of the orientation sensor changing with respect to the brass. The alignment
+routine allows the orientation of the MIMU to be measured.
+
+First, the current alignment is reset so that the unaligned sensor readings can
+still be calibrated for other non-alignment errors.
+
+```c++
+// @+'global definitions'
+void mimu_align()
+{
+    mimu_calibrator.resetAlignment();
+// @
+```
+
+The player is given a short delay to move into the first position, with the
+slide pointing directly at the ground, as close to perfectly vertical as
+possible.  The MIMU is read continuously for three seconds to average out any
+noise, and the vector measured by the accelerometer is taken as a measurement
+of the mubone's y-axis from the sensor's frame of reference.
+
+```c++
+// @+'global definitions'
+    delay(2000);
+    reading = mimu.readForMillis(3000);
+    calibr.calibrate(reading);
+    Vector ybasis(reading.accl);
+// @
+```
+
+Another delay is given for the user to point the mubone forward. In this second
+position, the exact elevation of the slide is relatively unimportant, but the
+instrument should not be rotated about the slide at all. The mubone should be
+held as close to a neutral playing position as possible. 
+
+The second reading is interpreted as a measurement in the plane defined by the
+mubone's y- and z-axes from the sensor's frame of reference. Along with the
+first reading, the two measurements provide enough information to determine
+the alignment of the sensor, which is stored with the other calibration
+contants.
+
+```c++
+// @+'global definitions'
+    delay(2000);
+    reading = mimu.readForMillis(3000);
+    calibr.calibrate(reading);
+    Vector zbasis(reading.accl);
+
+    mimu_calibrator.setAlignment(ybasis, zbasis);
+} 
 // @
 ```
 
@@ -355,10 +455,9 @@ much as there is available and then move on.
 
 The code is the same for receiving messages as it is for receiving bundles, so
 we use a template function to avoid having to repeat ourselves. This function
-will call out to `osc_dispatch` when the container being filled is full
-(presumably at the end of the packet) and then return `waiting` state.
-Otherwise it returns the initial state so that the container will keep being
-filled on the next loop.
+will call out to `osc_dispatch` when the end of a packet is received before
+returning `waiting` state.  Otherwise it returns the initial state so that the
+container will keep being filled on the next loop.
 
 ```c++
 // @+'global definitions'
@@ -371,7 +470,8 @@ OSCInState osc_receive(OSCContainer& osc, OSCInState initial_state)
         osc.fill(slipserial.read());
         if (slipserial.endofPacket())
         {
-            osc_dispatch(osc);
+            if (!osc.hasError()) osc_dispatch(osc);
+            osc.empty();
             return WAITING;
         }
     }
@@ -380,13 +480,54 @@ OSCInState osc_receive(OSCContainer& osc, OSCInState initial_state)
 // @
 ```
 
-The dispatch function for bundles simply calls the dispatch function for messages.
+For full flexibility, a custom dispatch routine is used.
 
 ```c++
 // @+'global definitions'
-template<class T>
-void osc_dispatch(T& osc)
+void osc_dispatch(OSCBundle& bundle)
 {
+    for (int i = 0; i < bundle.size(); ++i)
+    {
+        osc_dispatch( *(bundle.getOSCMessage(i)) );
+    }
+}
+
+bool set_floats(float * value, OSCMessage& msg, int n = 1)
+{
+    if (n > msg.size()) return false;
+    for (int i = 0; i < n; ++i)
+    {
+             if (msg.isFloat(i))  continue;
+        else if (msg.isDouble(i)) continue;
+        else if (msg.isInt(i))    continue;
+        else return false;
+    }
+    for (int i = 0; i < n; ++i)
+    {
+             if (msg.isFloat(i))  value[i] = msg.getFloat(i);
+        else if (msg.isDouble(i)) value[i] = msg.getDouble(i);
+        else if (msg.isInt(i))    value[i] = msg.getInt(i);
+    }
+    return true;
+}
+
+void osc_dispatch(OSCMessage& msg)
+{
+    if (msg.fullMatch("/zero")) zero_sensors();
+    else if (msg.fullMatch("/initialize")) mimu_initialize();
+    else if (msg.fullMatch("/align")) mimu_align();
+    else if (msg.fullMatch("/calibrate")) mimu_calibrate();
+    else if (msg.fullMatch("/calibration/accl/matrix")) set_floats(&mimu_calibrator.cc.acclcalibration.data(), msg, 9);
+    else if (msg.fullMatch("/calibration/gyro/matrix")) set_floats(&mimu_calibrator.cc.gyrocalibration.data(), msg, 9);
+    else if (msg.fullMatch("/calibration/magn/matrix")) set_floats(&mimu_calibrator.cc.magncalibration.data(), msg, 9);
+    else if (msg.fullMatch("/calibration/accl/vector")) set_floats(&mimu_calibrator.cc.abias.data(), msg, 3);
+    else if (msg.fullMatch("/calibration/gyro/vector")) set_floats(&mimu_calibrator.cc.gbias.data(), msg, 3);
+    else if (msg.fullMatch("/calibration/magn/vector")) set_floats(&mimu_calibrator.cc.mbias.data(), msg, 3);
+    else if (msg.fullMatch("/filter_coefficients/k_P")) set_floats(&mimu_filter.fc.k_P, msg);
+    else if (msg.fullMatch("/filter_coefficients/k_I")) set_floats(&mimu_filter.fc.k_I, msg);
+    else if (msg.fullMatch("/filter_coefficients/k_a")) set_floats(&mimu_filter.fc.k_a, msg);
+    else if (msg.fullMatch("/filter_coefficients/k_m")) set_floats(&mimu_filter.fc.k_m, msg);
+
 }
 // @
 ```

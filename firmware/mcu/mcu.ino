@@ -200,7 +200,7 @@ mimu.setup();
 
 void loop()
 {
-    OSCBundle bundle;
+    static OSCBundle bundle;
     
 static OSCMessage& buttons = bundle.add("/buttons");
     for (int i = 0; i < num_buttons; ++i) 

@@ -1,5 +1,11 @@
 # mubone firmware
 
+The mubone has two microcontrollers: the main MCU that reads the sensors, and
+an auxiliary ESP8266 that forwards data to the local network and coordinates
+connecting to the network.
+
+The main firmware is contained in the `mcu` sketch:
+
 ```c++
 // @#'mcu/mcu.ino'
 @{includes}
@@ -22,6 +28,31 @@ void loop()
 }
 // @
 ```
+
+The ESP8266 firmware is contained in the `esp` sketch:
+
+```c++
+// @#'esp/esp.ino'
+@{esp includes}
+
+@{esp definitions}
+void setup()
+{
+    @{connect to the network}
+}
+
+void loop()
+{
+    @{receive serial OSC}
+    @{send UDP OSC}
+    @{receive UDP OSC}
+    @{send serial OSC}
+}
+
+// @
+```
+
+# mcu.ino
 
 ## OSC
 
@@ -63,7 +94,9 @@ appropriate address. This ensures that messages are only allocated once.
 ## SLIP serial
 
 OSC messages are exchanged with the wireless controller via a SLIP-encoded
-serial stream. Setup is very simple.
+serial stream. Streams are set up for both USB and hardware serial so that the
+device can be used in either wired or wireless configuration. Setup is very
+simple.
 
 ```c++
 // @+'includes'
@@ -71,12 +104,14 @@ serial stream. Setup is very simple.
 // @
 
 // @+'global definitions'
-SLIPEncodedUSBSerial slipserial{Serial};
+SLIPEncodedUSBSerial usbserial{Serial};
+SLIPEncodedSerial hwserial{Serial1};
 
 // @
 
 // @+'comms setup'
-slipserial.begin(9600); // TODO: set this to the max
+usbserial.begin(9600); // TODO: set this to the max
+hwserial.begin(9600); // TODO: set this to the max
 // @
 
 ## I2C
@@ -207,9 +242,9 @@ static OSCMessage& sps = bundle.add("/slide_position");
 }
 
 static OSCMessage * misc[4] = { &bundle.add("/trigger")
-                              , &bundle.add("/joint1")
-                              , &bundle.add("/joint2")
-                              , &bundle.add("/rotator")
+                              , &bundle.add("/joint/x")
+                              , &bundle.add("/joint/z")
+                              , &bundle.add("/joint/y")
                               };
 {
     static int pot = 0;
@@ -414,7 +449,6 @@ void mimu_calibrate()
             msg.set(i, reading.data[i]);
         }
         @{transmit OSC messages}
-        while (slipserial.available()) slipserial.read(); // ignore incoming messages
     }
 }
 
@@ -452,17 +486,27 @@ This is very simple using the OSC library. Start packet, send packet, end
 packet.  The error messages bundle is only sent if there are error messages to
 send.
 
-// @='transmit OSC messages'
-slipserial.beginPacket();
-bundle.send(slipserial);
-slipserial.endPacket();
-
-if (error_messages.size() > 0)
+```c++
+// @+'global definitions'
+template<class SLIP_T>
+void send_osc(SLIP_T& serial, OSCBundle& bundle, OSCBundle& error_messages)
 {
-    slipserial.beginPacket();
-    error_messages.send(slipserial);
-    slipserial.endPacket();
+    serial.beginPacket();
+    bundle.send(serial);
+    serial.endPacket();
+    
+    if (error_messages.size() > 0)
+    {
+        serial.beginPacket();
+        error_messages.send(serial);
+        serial.endPacket();
+    }
 }
+// @
+
+// @='transmit OSC messages'
+send_osc(usbserial, bundle, error_messages);
+send_osc(hwserial, bundle, error_messages);
 // @
 ```
 
@@ -473,44 +517,47 @@ to deal with both messages and bundles, and to avoid blocking the main loop.
 
 First of all: the MCU may in principle receive a single message or a bundle of
 messages in any given SLIP packet. To deal with either case, both a bundle and
-a message must be declared. 
-
-```c++
-// @='receive OSC messages'
-static OSCBundle bundle_in;
-static OSCMessage msg_in;
-
-// @
-```
+a message must be declared.
 
 Initially, no packet is in progress and both the message `msg_in` and the
 bundle `bundle_in` are empty. In this case, when bytes start coming in the very
 first byte can be checked to determine if a bundle is incoming, since it will
 be a `#` character. For any other first byte, we can assume that the incoming
-packet is a message. 
+packet is a message.
 
 We use an enumeration to keep track of the current state. This is appended to
-the includes block to ensure the definition is available when the `osc_receive`
-template described later is instantiated.
+the includes block to ensure the definition is available when the templates are
+instantiated.
 
 ```c++
 // @+'includes'
 enum OSCInState {WAITING, MESSAGE, BUNDLE};
 // @
 
-// @+'receive OSC messages'
-static OSCInState state = WAITING;
-if (state == WAITING)
+// @+'global definitions'
+template<class SLIP_T>
+void receive_osc(SLIP_T& serial)
 {
-    if (slipserial.available())
+    static OSCBundle bundle_in;
+    static OSCMessage msg_in;
+    static OSCInState state = WAITING;
+    if (state == WAITING)
     {
-        if (slipserial.peek() == '#') state = BUNDLE;
-        else state = MESSAGE;
+        if (serial.available())
+        {
+            if (serial.peek() == '#') state = BUNDLE;
+            else state = MESSAGE;
+        }
     }
+    
+    if      (state == MESSAGE) state = receive_osc_inner(serial, msg_in, state);
+    else if (state == BUNDLE)  state = receive_osc_inner(serial, bundle_in, state);
 }
+// @
 
-if      (state == MESSAGE) state = osc_receive(msg_in, state);
-else if (state == BUNDLE)  state = osc_receive(bundle_in, state);
+// @+'receive OSC messages'
+receive_osc(usbserial);
+receive_osc(hwserial);
 // @
 ```
 
@@ -527,14 +574,14 @@ container will keep being filled on the next loop.
 
 ```c++
 // @+'global definitions'
-template<class OSCContainer>
-OSCInState osc_receive(OSCContainer& osc, OSCInState initial_state)
+template<class SLIP_T, class OSCContainer>
+OSCInState receive_osc_inner(SLIP_T& serial, OSCContainer& osc, OSCInState initial_state)
 {
-    int size = slipserial.available();
+    int size = serial.available();
     while(size--)
     {
-        osc.fill(slipserial.read());
-        if (slipserial.endofPacket())
+        osc.fill(serial.read());
+        if (serial.endofPacket())
         {
             if (!osc.hasError()) osc_dispatch(osc);
             osc.empty();
@@ -546,7 +593,10 @@ OSCInState osc_receive(OSCContainer& osc, OSCInState initial_state)
 // @
 ```
 
-For full flexibility, a custom dispatch routine is used.
+For full flexibility, a custom dispatch routine is used. The bundle dispatcher
+simply iterates through the messages in the bundle and forwards them to the
+message dispatcher. The Arduino OSC library we use doesn't support nested
+bundles, so there's no need to check for them.
 
 ```c++
 // @+'global definitions'
@@ -558,6 +608,19 @@ void osc_dispatch(OSCBundle& bundle)
     }
 }
 
+// @
+```
+
+Many incoming messages simply require the arguments of the OSC message to be
+parsed as floats and loaded into global variables. The following sub-routine
+facilitates this pattern. After checking that the OSC message contains the
+specified number of arguments in the first for loop, the second for loop copies
+the arguments of the OSC message to the given `float * value` buffer. A bool
+is returned to allow further action to be taken if the values are successfully
+copied.
+
+```c++
+// @+'global definitions'
 bool set_floats(float * value, OSCMessage& msg, int n = 1)
 {
     if (n > msg.size()) return false;
@@ -577,34 +640,89 @@ bool set_floats(float * value, OSCMessage& msg, int n = 1)
     return true;
 }
 
+// @
+```
+
+Finally, the message dispatcher simply checks if the given OSC message matches
+any of the expected addresses. Comments are provided inline for quick reference
+of the intended effect of each of the OSC methods supported by the firmware.
+
+```c++
+// @+'global definitions'
 void osc_dispatch(OSCMessage& msg)
 {
+    // set the sensors' zero values (mimu and sps)
     if (msg.fullMatch("/zero")) zero_sensors();
+
+    // quickly initialize the orientation sensor
     else if (msg.fullMatch("/initialize")) mimu_initialize();
+
+    // set the alignment of the mimu wrt to the brass
     else if (msg.fullMatch("/align")) mimu_align();
+
+    // switch to calibration mode; raw mimu readouts are sent to the network
     else if (msg.fullMatch("/calibrate")) mimu_calibrate();
+
+    // set the calibration matrices and vectors
     else if (msg.fullMatch("/calibration/accl/matrix")) set_floats(mimu_calibrator.cc.acclcalibration.data(), msg, 9);
     else if (msg.fullMatch("/calibration/gyro/matrix")) set_floats(mimu_calibrator.cc.gyrocalibration.data(), msg, 9);
     else if (msg.fullMatch("/calibration/magn/matrix")) set_floats(mimu_calibrator.cc.magncalibration.data(), msg, 9);
     else if (msg.fullMatch("/calibration/accl/vector")) set_floats(mimu_calibrator.cc.abias.data(), msg, 3);
     else if (msg.fullMatch("/calibration/gyro/vector")) set_floats(mimu_calibrator.cc.gbias.data(), msg, 3);
     else if (msg.fullMatch("/calibration/magn/vector")) set_floats(mimu_calibrator.cc.mbias.data(), msg, 3);
-    else if (msg.fullMatch("/filter_coefficients/k_P")) set_floats(&mimu_filter.fc.k_P, msg);
-    else if (msg.fullMatch("/filter_coefficients/k_I")) set_floats(&mimu_filter.fc.k_I, msg);
-    else if (msg.fullMatch("/filter_coefficients/k_a")) set_floats(&mimu_filter.fc.k_a, msg);
-    else if (msg.fullMatch("/filter_coefficients/k_m")) set_floats(&mimu_filter.fc.k_m, msg);
 
+    // set the fusion filter coefficients
+    //     proportional feedback
+    else if (msg.fullMatch("/filter_coefficients/k_P")) set_floats(&mimu_filter.fc.k_P, msg);
+    //     integral feedback
+    else if (msg.fullMatch("/filter_coefficients/k_I")) set_floats(&mimu_filter.fc.k_I, msg);
+    //     accelerometer influence
+    else if (msg.fullMatch("/filter_coefficients/k_a")) set_floats(&mimu_filter.fc.k_a, msg);
+    //     magnetometer influence
+    else if (msg.fullMatch("/filter_coefficients/k_m")) set_floats(&mimu_filter.fc.k_m, msg);
 }
+
 // @
 ```
 
-The message dispatcher 
+# esp.ino
 
-## setting the zero positions
+## connecting to the network
 
+We use the WiFiManager library to facilitate connecting to the local network.
+This library causes the ESP to host a mubone network in station mode where the
+captive log in page is used to provide the password for one of the networks
+the ESP detects while scanning.
 
+```c++
+// @+'esp includes'
+// wifi manager includes
+#include "ESP8266WiFi.h"
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h> 
+// @
 
-## LEDs
+// @+'connect to the network'
+WiFiManager wifiman;
+wifiman.autoConnect("mubone");
+// @
+```
 
+Once the connection is established, the local IP address can be inspected. This
+is used to determine an appropriate output IP address, which by default will
+broadcast to all devices on the network.
 
+```c++
+// @+'esp definitions'
+IPAddress device_address;
+IPAddress output_address;
+// @
+
+// @+'connect to the network'
+device_address = WiFi.localIP();
+output_address = device_address;
+output_address[3] = 255; // broadcast;
+// @
+```
 

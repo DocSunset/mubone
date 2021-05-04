@@ -109,20 +109,24 @@ serial stream. Streams are set up for both USB and hardware serial so that the
 device can be used in either wired or wireless configuration. Setup is very
 simple.
 
+Note: at the time of writing, hardware serial is disabled since the esp firmware
+is still a work in progress.
+
 ```c++
 // @+'includes'
 #include "SLIPEncodedUSBSerial.h"
+//#include "SLIPEncodedSerial.h"
 // @
 
 // @+'global definitions'
 SLIPEncodedUSBSerial usbserial{Serial};
-SLIPEncodedSerial hwserial{Serial1};
+//SLIPEncodedSerial hwserial{Serial1};
 
 // @
 
 // @+'comms setup'
-usbserial.begin(9600); // TODO: set this to the max
-hwserial.begin(9600); // TODO: set this to the max
+usbserial.begin(2000000);
+//hwserial.begin(2000000);
 // @
 
 ## I2C
@@ -291,7 +295,7 @@ MIMUCalibrator mimu_calibrator;
 MIMUFusionFilter mimu_filter;
 
 MIMUReading reading = MIMUReading::Zero();
-Quaternion mimu_zero = Quaternion::Zero();
+Quaternion mimu_zero = Quaternion::Identity();
 
 // @
 
@@ -321,24 +325,25 @@ void mimu_tick()
 ```
 
 After ticking the MIMU, the orientation is zeroed and converted to two useful
-representations (quaternion and matrix). 
+representations (quaternion and matrix). Along with the calibrated sensor
+readings, these orientation representations are added to the OSC bundle.
 
 ```c++
 // @+'read sensors'
 mimu_tick();
-auto zeroed = mimu_zero * mimu_filter.quat;
+auto zeroed = mimu_zero * mimu_filter.q;
 auto zeroed_matrix = zeroed.toRotationMatrix();
 
 static OSCMessage& accl = bundle.add("/accl");
-osc_set_floats(reading.accl.data(),  3, accl);
+osc_set_floats(reading.accl.data(),    3, accl);
 static OSCMessage& gyro = bundle.add("/gyro");
-osc_set_floats(reading.gyro.data(),  3, gyro);
+osc_set_floats(reading.gyro.data(),    3, gyro);
 static OSCMessage& magn = bundle.add("/magn");
-osc_set_floats(reading.magn.data(),  3, magn);
+osc_set_floats(reading.magn.data(),    3, magn);
 static OSCMessage& quat = bundle.add("/quat");
-osc_set_floats(zeroed.data(),        4, quat);
+osc_set_floats(zeroed.coeffs().data(), 4, quat);
 static OSCMessage& mtrx = bundle.add("/mtrx");
-osc_set_floats(zeroed_matrix.data(), 9, mtrx);
+osc_set_floats(zeroed_matrix.data(),   9, mtrx);
 
 // @
 ```
@@ -374,28 +379,6 @@ static OSCMessage& cubeal = bundle.add("/cubeal");
 // @
 ```
 
-
-
- ```c++
-// @='read sensors'
-// @
-```
-
-
-
- ```c++
-// @='read sensors'
-// @
-```
-
-
-
-```c++
-// @+'read sensors'
-
-// @
-```
-
 ### initializing the orientation sensor fusion filter
 
 In some situations, such as after turning on the device, the orientation sensor
@@ -413,7 +396,7 @@ void mimu_initialize()
 
     // initialize the orientation
     mimu_calibrator.calibrate(reading);
-    orientation = mimu_filter.initializeFrom(reading.accl, reading.magn);
+    mimu_filter.initializeFrom(reading.accl, reading.magn);
     
     float originalkp = mimu_filter.fc.k_P; // save current proportional feedback
     mimu_filter.fc.k_P = 21; // crank it up past 11
@@ -436,12 +419,37 @@ mimu_initialize();
 ### setting the orientation sensor alignment
 
 Tiny variances in the assembly of the circuit boards, mechanical parts, and
-mounting of the mubone augmentations to the slide can lead to the alignment
-of the orientation sensor changing with respect to the brass. The alignment
-routine allows the orientation of the MIMU to be measured.
+mounting of the mubone augmentations to the slide can lead to the alignment of
+the orientation sensor changing with respect to the brass. The alignment
+routine allows the orientation of the MIMU with respect to the brass to be
+estimated; this requires two seperated measurements with the instrument in two
+specific position.  In the first position, the player points the slide directly
+at the ground, as close to perfectly vertical as possible.  In the second
+position, the player points the mubone forward. In this second position, the
+exact elevation of the slide is relatively unimportant, but the instrument
+should not be rotated about the slide at all. The mubone should be held as
+close to a neutral playing position as possible.
 
-First, the current alignment is reset so that the unaligned sensor readings can
-still be calibrated for other non-alignment errors.
+The routine waits indefinitely until the player is in position; once there, the
+player can signal their readiness by pressing any button.  The following helper
+checks for the player's signal:
+
+// @+'global definitions'
+bool any_button_pressed()
+{
+    for (int i = 0; i < num_buttons; ++i) 
+    {
+        if (digitalRead(button_pins[i]) == 0) return true;
+    }
+    return false;
+}
+
+// @
+
+Before measuring the first position, the current alignment is reset so that the
+unaligned sensor readings can still have their non-alignment errors compensated
+for by the calibrator while being otherwise "raw" (i.e. not aligned using the
+current presumably incorrect alignment constants).
 
 ```c++
 // @+'global definitions'
@@ -451,40 +459,48 @@ void mimu_align()
 // @
 ```
 
-The player is given a short delay to move into the first position, with the
-slide pointing directly at the ground, as close to perfectly vertical as
-possible.  The MIMU is read continuously for three seconds to average out any
-noise, and the vector measured by the accelerometer is taken as a measurement
-of the mubone's y-axis from the sensor's frame of reference.
+The routine then waits indefinitely until the player's signal is received, and
+then the MIMU is read continuously for three seconds to average out any noise,
+and the vector measured by the accelerometer is taken as a measurement of the
+mubone's y-axis from the sensor's frame of reference.
 
 ```c++
 // @+'global definitions'
-    delay(2000);
+    while(!any_button_pressed()) {/* wait */}
+    delay(1000); // wait a second for the player to stabilize after
+                 // pressing the button
     reading = mimu.readForMillis(3000);
     mimu_calibrator.calibrate(reading);
     Vector ybasis(reading.accl);
 // @
 ```
 
-Another delay is given for the user to point the mubone forward. In this second
-position, the exact elevation of the slide is relatively unimportant, but the
-instrument should not be rotated about the slide at all. The mubone should be
-held as close to a neutral playing position as possible. 
-
-The second reading is interpreted as a measurement in the plane defined by the
-mubone's y- and z-axes from the sensor's frame of reference. Along with the
-first reading, the two measurements provide enough information to determine
-the alignment of the sensor, which is stored with the other calibration
-contants.
+After a second indefinite wait for the player's signal, the second measurement
+it taken in the same fashion as the first.  The second reading is interpreted
+as a measurement in the plane defined by the mubone's y- and z-axes from the
+sensor's frame of reference. Along with the first reading, the two measurements
+provide enough information to determine the alignment of the sensor, which is
+stored with the other calibration contants.
 
 ```c++
 // @+'global definitions'
-    delay(2000);
+    while(!any_button_pressed()) {/* wait */}
+    delay(1000); // wait a second for the player to stabilize after
+                 // pressing the button
     reading = mimu.readForMillis(3000);
     mimu_calibrator.calibrate(reading);
     Vector zbasis(reading.accl);
 
     mimu_calibrator.setAlignment(ybasis, zbasis);
+// @
+```
+
+After the alignment is set, the fusion filter is re-initialized based on the
+new sensor-local frame of reference.
+
+```c++
+// @+'global definitions'
+    mimu_initialize();
 } 
 
 // @
@@ -496,21 +512,18 @@ In case the user needs to calibrate the MIMU sensor there is significantly less
 work to do. The following subroutine performs a minimal loop reading from the
 orientation sensor and sending the un-calibrated raw data to the network for
 analysis by calibration software. Pressing any of the buttons on the device
-cancels calibration mode and breaks out of the loop, returning execution to
-the normal flow.
+(the same signal as is used in the alignment procedure) cancels calibration
+mode and breaks out of the loop, returning execution to the normal flow.
 
 ```c++
 // @+'global definitions'
 void mimu_calibrate()
 {
     OSCBundle bundle;
+    OSCMessage& msg = bundle.add("/raw");
     while (true)
     {
-        for (int i = 0; i < num_buttons; ++i) 
-        {
-            if (digitalRead(button_pins[i]) == 0) break;
-        }
-        OSCMessage& msg = bundle.add("/raw");
+        if (any_button_pressed()) return;
         mimu.readInto(reading);
         reading.updateBuffer();
         osc_set_floats(reading.data, 10, msg);
@@ -536,7 +549,7 @@ consequence.
 
 ```c++
 // @='zero orientation'
-Vector ybasis = mimu_filter.mtrx.col(1);
+Vector ybasis = mimu_filter.rotation.col(1);
 float azimuth = std::atan2(ybasis.y(), ybasis.x());
 mimu_zero = AngleAxis(azimuth, Vector::UnitZ());
 // @
@@ -578,13 +591,14 @@ void send_osc(SLIP_T& serial, OSCBundle& bundle, OSCBundle& error_messages)
         serial.beginPacket();
         error_messages.send(serial);
         serial.endPacket();
+        error_messages.empty();
     }
 }
 // @
 
 // @='transmit OSC messages'
 send_osc(usbserial, bundle, error_messages);
-send_osc(hwserial, bundle, error_messages);
+//send_osc(hwserial, bundle, error_messages);
 // @
 ```
 
@@ -635,7 +649,7 @@ void receive_osc(SLIP_T& serial)
 
 // @+'receive OSC messages'
 receive_osc(usbserial);
-receive_osc(hwserial);
+//receive_osc(hwserial);
 // @
 ```
 
@@ -650,21 +664,23 @@ will call out to `osc_dispatch` when the end of a packet is received before
 returning `waiting` state.  Otherwise it returns the initial state so that the
 container will keep being filled on the next loop.
 
+Due to the implementation of SLIPSerial in the CNMAT OSC library, it's
+necessary to check for an `endofPacket` condition before reading.
+
 ```c++
 // @+'global definitions'
 template<class SLIP_T, class OSCContainer>
 OSCInState receive_osc_inner(SLIP_T& serial, OSCContainer& osc, OSCInState initial_state)
 {
-    int size = serial.available();
-    while(size--)
+    if (serial.endofPacket())
+    {
+        if (!osc.hasError()) osc_dispatch(osc);
+        osc.empty();
+        return WAITING;
+    }
+    else for (int size = serial.available(); size > 0; --size)
     {
         osc.fill(serial.read());
-        if (serial.endofPacket())
-        {
-            if (!osc.hasError()) osc_dispatch(osc);
-            osc.empty();
-            return WAITING;
-        }
     }
     return initial_state;
 }

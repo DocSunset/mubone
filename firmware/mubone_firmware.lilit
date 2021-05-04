@@ -90,6 +90,17 @@ static OSCBundle bundle;
 As seen below, each message that needs to be sent is statically declared in the
 loop function and initialized by calling `bundle.add(address)` with the
 appropriate address. This ensures that messages are only allocated once.
+Data is added to the messages using the built in `msg.set()` method, or the
+following helper function:
+
+```c++
+// @+'global definitions'
+void osc_set_floats(float * f, int size, OSCMessage& msg)
+{
+    for (int i = 0; i < size; ++i) msg.set(i, f[i]);
+}
+// @
+```
 
 ## SLIP serial
 
@@ -280,16 +291,7 @@ MIMUCalibrator mimu_calibrator;
 MIMUFusionFilter mimu_filter;
 
 MIMUReading reading = MIMUReading::Zero();
-Quaternion orientation = Quaternion::Identity();
-
-void mimu_tick()
-{
-    if (mimu.readInto(reading))
-    {
-        mimu_calibrator.calibrate(reading);
-    }
-    orientation = mimu_filter.fuse(reading.accl, reading.gyro, reading.magn);
-}
+Quaternion mimu_zero = Quaternion::Zero();
 
 // @
 
@@ -298,31 +300,98 @@ mimu.setup();
 mimu_calibrator.setup();
 mimu_filter.setup();
 // @
+```
 
+Reading the sensors, correcting the errors in their output based on the
+calibration coefficients, and running the fusion filter are performed in a
+subroutine:
+
+```c++
+// @+'global definitions'
+void mimu_tick()
+{
+    if (mimu.readInto(reading))
+    {
+        mimu_calibrator.calibrate(reading);
+    }
+    mimu_filter.fuse(reading.accl, reading.gyro, reading.magn);
+}
+
+// @
+```
+
+After ticking the MIMU, the orientation is zeroed and converted to two useful
+representations (quaternion and matrix). 
+
+```c++
 // @+'read sensors'
-static OSCMessage& accl = bundle.add("/accl");
-static OSCMessage& gyro = bundle.add("/gyro");
-static OSCMessage& magn = bundle.add("/magn");
-static OSCMessage& quat = bundle.add("/quat");
-
 mimu_tick();
+auto zeroed = mimu_zero * mimu_filter.quat;
+auto zeroed_matrix = zeroed.toRotationMatrix();
 
-accl.set(0, reading.accl.x());
-accl.set(1, reading.accl.y());
-accl.set(2, reading.accl.z());
+static OSCMessage& accl = bundle.add("/accl");
+osc_set_floats(reading.accl.data(),  3, accl);
+static OSCMessage& gyro = bundle.add("/gyro");
+osc_set_floats(reading.gyro.data(),  3, gyro);
+static OSCMessage& magn = bundle.add("/magn");
+osc_set_floats(reading.magn.data(),  3, magn);
+static OSCMessage& quat = bundle.add("/quat");
+osc_set_floats(zeroed.data(),        4, quat);
+static OSCMessage& mtrx = bundle.add("/mtrx");
+osc_set_floats(zeroed_matrix.data(), 9, mtrx);
 
-gyro.set(0, reading.gyro.x());
-gyro.set(1, reading.gyro.y());
-gyro.set(2, reading.gyro.z());
+// @
+```
 
-magn.set(0, reading.magn.x());
-magn.set(1, reading.magn.y());
-magn.set(2, reading.magn.z());
+Based on the matrix, the normal vector can be extracted; this unit vector
+reflects the direction the slide is pointed in the global coordinate space. 
 
-quat.set(0, orientation.w());
-quat.set(1, orientation.x());
-quat.set(2, orientation.y());
-quat.set(3, orientation.z());
+```c++
+// @+'read sensors'
+static OSCMessage& normal = bundle.add("/normal");
+auto normal_vector = zeroed_matrix.col(1);
+osc_set_floats(normal_vector.data(), 3, normal);
+
+// @
+```
+
+The normal vector always lies on the surface of a unit sphere. Sometimes it is
+useful to project the vector further, so that it lies on a unit cube. The
+following routine performs this mapping:
+
+ ```c++
+// @='read sensors'
+static OSCMessage& cubeal = bundle.add("/cubeal");
+{
+    float x = fabs(normal_vector.x());
+    float y = fabs(normal_vector.y());
+    float z = fabs(normal_vector.z());
+    float max = x > y ? x : y;
+    max = max > z ? max : z;
+    auto cubeal_vector = normal_vector / max;
+    osc_set_floats(cubeal_vector.data(), 3, cubeal);
+}
+// @
+```
+
+
+
+ ```c++
+// @='read sensors'
+// @
+```
+
+
+
+ ```c++
+// @='read sensors'
+// @
+```
+
+
+
+```c++
+// @+'read sensors'
 
 // @
 ```
@@ -441,13 +510,10 @@ void mimu_calibrate()
         {
             if (digitalRead(button_pins[i]) == 0) break;
         }
-        static OSCMessage& msg = bundle.add("/raw");
+        OSCMessage& msg = bundle.add("/raw");
         mimu.readInto(reading);
         reading.updateBuffer();
-        for (int i = 0; i < 9; ++i)
-        {
-            msg.set(i, reading.data[i]);
-        }
+        osc_set_floats(reading.data, 10, msg);
         @{transmit OSC messages}
     }
 }
@@ -463,7 +529,18 @@ to a local frame of reference (e.g. the stage) is needed. This local frame is
 typically a rotation of the global frame. Zeroing the orientation sensor allows
 the orientation output to be rotated into the local frame of reference by
 setting the orientation in which the mubone is aligned with the local y-axis
-(e.g. when facing the audience). 
+(e.g. when facing the audience). This is conceptually the same as setting the
+direction that is considered "forward". The direction of up remains based on
+gravity. The remaining coordinate axis (left-right) is determined as a
+consequence.
+
+```c++
+// @='zero orientation'
+Vector ybasis = mimu_filter.mtrx.col(1);
+float azimuth = std::atan2(ybasis.y(), ybasis.x());
+mimu_zero = AngleAxis(azimuth, Vector::UnitZ());
+// @
+```
 
 A somewhat related concept, the slide position sensor's output is accumulated
 over time to provide an estimate of the slide position based on the rotation of
@@ -476,6 +553,7 @@ Both of these tasks are performed by the following subroutine:
 // @+'global definitions'
 void zero_sensors()
 {
+    @{zero orientation}
 }
 // @
 ```

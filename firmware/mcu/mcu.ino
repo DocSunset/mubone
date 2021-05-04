@@ -1,5 +1,6 @@
 #include "OSCBundle.h"
 #include "SLIPEncodedUSBSerial.h"
+//#include "SLIPEncodedSerial.h"
 #include "ADS1219.h"
 #include "MIMU_MPU9250.h"
 #include "MIMUCalibrator.h"
@@ -7,7 +8,12 @@
 enum OSCInState {WAITING, MESSAGE, BUNDLE};
 
 OSCBundle error_messages;
-SLIPEncodedUSBSerial slipserial{Serial};
+void osc_set_floats(float * f, int size, OSCMessage& msg)
+{
+    for (int i = 0; i < size; ++i) msg.set(i, f[i]);
+}
+SLIPEncodedUSBSerial usbserial{Serial};
+//SLIPEncodedSerial hwserial{Serial1};
 
 constexpr int num_buttons = 8;
 constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 11};
@@ -30,7 +36,7 @@ MIMUCalibrator mimu_calibrator;
 MIMUFusionFilter mimu_filter;
 
 MIMUReading reading = MIMUReading::Zero();
-Quaternion orientation = Quaternion::Identity();
+Quaternion mimu_zero = Quaternion::Identity();
 
 void mimu_tick()
 {
@@ -38,7 +44,7 @@ void mimu_tick()
     {
         mimu_calibrator.calibrate(reading);
     }
-    orientation = mimu_filter.fuse(reading.accl, reading.gyro, reading.magn);
+    mimu_filter.fuse(reading.accl, reading.gyro, reading.magn);
 }
 
 void mimu_initialize()
@@ -47,7 +53,7 @@ void mimu_initialize()
 
     // initialize the orientation
     mimu_calibrator.calibrate(reading);
-    orientation = mimu_filter.initializeFrom(reading.accl, reading.magn);
+    mimu_filter.initializeFrom(reading.accl, reading.magn);
     
     float originalkp = mimu_filter.fc.k_P; // save current proportional feedback
     mimu_filter.fc.k_P = 21; // crank it up past 11
@@ -58,14 +64,27 @@ void mimu_initialize()
 
     mimu_filter.fc.k_P = originalkp; // reset k_P
 }
+bool any_button_pressed()
+{
+    for (int i = 0; i < num_buttons; ++i) 
+    {
+        if (digitalRead(button_pins[i]) == 0) return true;
+    }
+    return false;
+}
+
 void mimu_align()
 {
     mimu_calibrator.resetAlignment();
-    delay(2000);
+    while(!any_button_pressed()) {/* wait */}
+    delay(1000); // wait a second for the player to stabilize after
+                 // pressing the button
     reading = mimu.readForMillis(3000);
     mimu_calibrator.calibrate(reading);
     Vector ybasis(reading.accl);
-    delay(2000);
+    while(!any_button_pressed()) {/* wait */}
+    delay(1000); // wait a second for the player to stabilize after
+                 // pressing the button
     reading = mimu.readForMillis(3000);
     mimu_calibrator.calibrate(reading);
     Vector zbasis(reading.accl);
@@ -76,49 +95,78 @@ void mimu_align()
 void mimu_calibrate()
 {
     OSCBundle bundle;
+    OSCMessage& msg = bundle.add("/raw");
     while (true)
     {
-        for (int i = 0; i < num_buttons; ++i) 
-        {
-            if (digitalRead(button_pins[i]) == 0) break;
-        }
-        static OSCMessage& msg = bundle.add("/raw");
+        if (any_button_pressed()) return;
         mimu.readInto(reading);
         reading.updateBuffer();
-        for (int i = 0; i < 9; ++i)
-        {
-            msg.set(i, reading.data[i]);
-        }
-        slipserial.beginPacket();
-        bundle.send(slipserial);
-        slipserial.endPacket();
-        
-        if (error_messages.size() > 0)
-        {
-            slipserial.beginPacket();
-            error_messages.send(slipserial);
-            slipserial.endPacket();
-        }
-        while (slipserial.available()) slipserial.read(); // ignore incoming messages
+        osc_set_floats(reading.data, 10, msg);
+        send_osc(usbserial, bundle, error_messages);
+        //send_osc(hwserial, bundle, error_messages);
     }
 }
 
 void zero_sensors()
 {
+    Vector ybasis = mimu_filter.rotation.col(1);
+    float azimuth = std::atan2(ybasis.y(), ybasis.x());
+    mimu_zero = AngleAxis(azimuth, Vector::UnitZ());
 }
-template<class OSCContainer>
-OSCInState osc_receive(OSCContainer& osc, OSCInState initial_state)
+template<class SLIP_T>
+void send_osc(SLIP_T& serial, OSCBundle& bundle, OSCBundle& error_messages)
 {
-    int size = slipserial.available();
-    while(size--)
+    serial.beginPacket();
+    bundle.send(serial);
+    serial.endPacket();
+    
+    if (error_messages.size() > 0)
     {
-        osc.fill(slipserial.read());
-        if (slipserial.endofPacket())
+        serial.beginPacket();
+        error_messages.send(serial);
+        serial.endPacket();
+        error_messages.empty();
+    }
+}
+template<class SLIP_T>
+void receive_osc(SLIP_T& serial)
+{
+    static OSCBundle bundle_in;
+    static OSCMessage msg_in;
+    static OSCInState state = WAITING;
+    if (state == WAITING)
+    {
+        error_messages.add("/debug/waiting_for_input");
+        if (serial.available())
         {
-            if (!osc.hasError()) osc_dispatch(osc);
-            osc.empty();
-            return WAITING;
+            if (serial.peek() == '#') state = BUNDLE;
+            else state = MESSAGE;
         }
+    }
+    
+    if      (state == MESSAGE) 
+    {
+        error_messages.add("/debug/we_got_a_message");
+        state = receive_osc_inner(serial, msg_in, state);
+    }
+    else if (state == BUNDLE)  
+    {
+        error_messages.add("/debug/we_got_a_bundle");
+        state = receive_osc_inner(serial, bundle_in, state);
+    }
+}
+template<class SLIP_T, class OSCContainer>
+OSCInState receive_osc_inner(SLIP_T& serial, OSCContainer& osc, OSCInState initial_state)
+{
+    if (serial.endofPacket())
+    {
+        if (!osc.hasError()) osc_dispatch(osc);
+        osc.empty();
+        return WAITING;
+    }
+    else for (int size = serial.available(); size > 0; --size)
+    {
+        osc.fill(serial.read());
     }
     return initial_state;
 }
@@ -151,25 +199,41 @@ bool set_floats(float * value, OSCMessage& msg, int n = 1)
 
 void osc_dispatch(OSCMessage& msg)
 {
+    // set the sensors' zero values (mimu and sps)
     if (msg.fullMatch("/zero")) zero_sensors();
+
+    // quickly initialize the orientation sensor
     else if (msg.fullMatch("/initialize")) mimu_initialize();
+
+    // set the alignment of the mimu wrt to the brass
     else if (msg.fullMatch("/align")) mimu_align();
+
+    // switch to calibration mode; raw mimu readouts are sent to the network
     else if (msg.fullMatch("/calibrate")) mimu_calibrate();
+
+    // set the calibration matrices and vectors
     else if (msg.fullMatch("/calibration/accl/matrix")) set_floats(mimu_calibrator.cc.acclcalibration.data(), msg, 9);
     else if (msg.fullMatch("/calibration/gyro/matrix")) set_floats(mimu_calibrator.cc.gyrocalibration.data(), msg, 9);
     else if (msg.fullMatch("/calibration/magn/matrix")) set_floats(mimu_calibrator.cc.magncalibration.data(), msg, 9);
     else if (msg.fullMatch("/calibration/accl/vector")) set_floats(mimu_calibrator.cc.abias.data(), msg, 3);
     else if (msg.fullMatch("/calibration/gyro/vector")) set_floats(mimu_calibrator.cc.gbias.data(), msg, 3);
     else if (msg.fullMatch("/calibration/magn/vector")) set_floats(mimu_calibrator.cc.mbias.data(), msg, 3);
-    else if (msg.fullMatch("/filter_coefficients/k_P")) set_floats(&mimu_filter.fc.k_P, msg);
-    else if (msg.fullMatch("/filter_coefficients/k_I")) set_floats(&mimu_filter.fc.k_I, msg);
-    else if (msg.fullMatch("/filter_coefficients/k_a")) set_floats(&mimu_filter.fc.k_a, msg);
-    else if (msg.fullMatch("/filter_coefficients/k_m")) set_floats(&mimu_filter.fc.k_m, msg);
 
+    // set the fusion filter coefficients
+    //     proportional feedback
+    else if (msg.fullMatch("/filter_coefficients/k_P")) set_floats(&mimu_filter.fc.k_P, msg);
+    //     integral feedback
+    else if (msg.fullMatch("/filter_coefficients/k_I")) set_floats(&mimu_filter.fc.k_I, msg);
+    //     accelerometer influence
+    else if (msg.fullMatch("/filter_coefficients/k_a")) set_floats(&mimu_filter.fc.k_a, msg);
+    //     magnetometer influence
+    else if (msg.fullMatch("/filter_coefficients/k_m")) set_floats(&mimu_filter.fc.k_m, msg);
 }
+
 void setup()
 {
-    slipserial.begin(9600); // TODO: set this to the max
+    usbserial.begin(2000000);
+    //hwserial.begin(2000000);
 Wire.begin();
 
     for (const auto& pin : button_pins) pinMode(pin, INPUT_PULLUP);
@@ -196,6 +260,7 @@ mimu.setup();
     mimu_filter.setup();
 
     mimu_initialize();
+    delay(5000);
 }
 
 void loop()
@@ -228,9 +293,9 @@ static OSCMessage& sps = bundle.add("/slide_position");
     }
     
     static OSCMessage * misc[4] = { &bundle.add("/trigger")
-                                  , &bundle.add("/joint1")
-                                  , &bundle.add("/joint2")
-                                  , &bundle.add("/rotator")
+                                  , &bundle.add("/joint/x")
+                                  , &bundle.add("/joint/z")
+                                  , &bundle.add("/joint/y")
                                   };
     {
         static int pot = 0;
@@ -244,53 +309,27 @@ static OSCMessage& sps = bundle.add("/slide_position");
         }
     }
     
-static OSCMessage& accl = bundle.add("/accl");
+mimu_tick();
+    auto zeroed = mimu_zero * mimu_filter.q;
+    auto zeroed_matrix = zeroed.toRotationMatrix();
+    
+    static OSCMessage& accl = bundle.add("/accl");
+    osc_set_floats(reading.accl.data(),    3, accl);
     static OSCMessage& gyro = bundle.add("/gyro");
+    osc_set_floats(reading.gyro.data(),    3, gyro);
     static OSCMessage& magn = bundle.add("/magn");
+    osc_set_floats(reading.magn.data(),    3, magn);
     static OSCMessage& quat = bundle.add("/quat");
+    osc_set_floats(zeroed.coeffs().data(), 4, quat);
+    static OSCMessage& mtrx = bundle.add("/mtrx");
+    osc_set_floats(zeroed_matrix.data(),   9, mtrx);
     
-    mimu_tick();
+static OSCMessage& normal = bundle.add("/normal");
+    auto normal_vector = zeroed_matrix.col(1);
+    osc_set_floats(normal_vector.data(), 3, normal);
     
-    accl.set(0, reading.accl.x());
-    accl.set(1, reading.accl.y());
-    accl.set(2, reading.accl.z());
-    
-    gyro.set(0, reading.gyro.x());
-    gyro.set(1, reading.gyro.y());
-    gyro.set(2, reading.gyro.z());
-    
-    magn.set(0, reading.magn.x());
-    magn.set(1, reading.magn.y());
-    magn.set(2, reading.magn.z());
-    
-    quat.set(0, orientation.w());
-    quat.set(1, orientation.x());
-    quat.set(2, orientation.y());
-    quat.set(3, orientation.z());
-    
-    static OSCBundle bundle_in;
-    static OSCMessage msg_in;
-    
-static OSCInState state = WAITING;
-    if (state == WAITING)
-    {
-        if (slipserial.available())
-        {
-            if (slipserial.peek() == '#') state = BUNDLE;
-            else state = MESSAGE;
-        }
-    }
-    
-    if      (state == MESSAGE) state = osc_receive(msg_in, state);
-    else if (state == BUNDLE)  state = osc_receive(bundle_in, state);
-    slipserial.beginPacket();
-    bundle.send(slipserial);
-    slipserial.endPacket();
-    
-    if (error_messages.size() > 0)
-    {
-        slipserial.beginPacket();
-        error_messages.send(slipserial);
-        slipserial.endPacket();
-    }
+    receive_osc(usbserial);
+    //receive_osc(hwserial);
+    send_osc(usbserial, bundle, error_messages);
+    //send_osc(hwserial, bundle, error_messages);
 }

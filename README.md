@@ -144,17 +144,23 @@ As much as possible, this application is used as a rapid prototyping tool for
 gesture-feature extraction algorithms that can ultimately be integrated in the
 device firmware. 
 
+This application is currently integrated into the granular software, but will
+eventually be decoupled from the latter. Furthermore, the current version
+doesn't support reading the sensors via SLIPSerial, so it won't work with the
+MK3 hardware until after UDP/WiFi support is implemented.
+
 ### granular
 
 This JUCE application creates a spatial recorder and granulator allowing sounds
 to be placed at locations in space around the player and later granulated by
 pointing the mubone towards those locations. This is the original mubone
-application. A pure data patch is used to achieve the mapping, so in principle
-the granulator could be used with any controller that provides a spatial signal
-to use for positioning and recalling sounds.
+application. A pure data patch is used to achieve the mapping (still in
+progress), so in principle the granulator could be used with any controller
+that provides a spatial signal to use for positioning and recalling sounds.
 
 ### pure data patches
 
-As well as the mapping for the granular application, several other pure data
-patches are included in the repository. These are mostly sketches from
-workshops exploring other possible approaches to using the mubone. 
+Currently, a tester.pd patch is provided for viewing raw output from the
+hardware. This will most likely serve (after some more development) as an
+interim sensor model application until such time as the C++ version is working
+again.

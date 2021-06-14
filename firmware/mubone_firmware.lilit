@@ -26,7 +26,7 @@ void loop()
     @{receive OSC messages}
     @{transmit OSC messages}
 }
-// @
+// @/
 ```
 
 The ESP8266 firmware is contained in the `esp` sketch:
@@ -49,7 +49,7 @@ void loop()
     @{send serial OSC}
 }
 
-// @
+// @/
 ```
 
 # mcu.ino
@@ -75,16 +75,16 @@ statically before reading sensors.
 ```c++
 // @+'includes'
 #include "OSCBundle.h"
-// @
+// @/
 
 // @+'global definitions'
 OSCBundle error_messages;
-// @
+// @/
 
 // @+'read sensors'
 static OSCBundle bundle;
 
-// @
+// @/
 ```
 
 As seen below, each message that needs to be sent is statically declared in the
@@ -99,7 +99,7 @@ void osc_set_floats(float * f, int size, OSCMessage& msg)
 {
     for (int i = 0; i < size; ++i) msg.set(i, f[i]);
 }
-// @
+// @/
 ```
 
 ## SLIP serial
@@ -116,18 +116,18 @@ is still a work in progress.
 // @+'includes'
 #include "SLIPEncodedUSBSerial.h"
 //#include "SLIPEncodedSerial.h"
-// @
+// @/
 
 // @+'global definitions'
 SLIPEncodedUSBSerial usbserial{Serial};
 //SLIPEncodedSerial hwserial{Serial1};
 
-// @
+// @/
 
 // @+'comms setup'
 usbserial.begin(2000000);
 //hwserial.begin(2000000);
-// @
+// @/
 
 ## I2C
 
@@ -138,7 +138,7 @@ things up and running.
 ```c++
 // @+'comms setup'
 Wire.begin();
-// @
+// @/
 ```
 
 ## buttons
@@ -153,12 +153,12 @@ producing a logical low value.
 constexpr int num_buttons = 8;
 constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 11};
 
-// @
+// @/
 
 // @+'sensors setup'
 for (const auto& pin : button_pins) pinMode(pin, INPUT_PULLUP);
 
-// @
+// @/
 
 // @+'read sensors'
 static OSCMessage& buttons = bundle.add("/buttons");
@@ -169,7 +169,7 @@ for (int i = 0; i < num_buttons; ++i)
     buttons.set(i, reading);
 }
 
-// @
+// @/
 ```
 
 ## joystick
@@ -183,20 +183,20 @@ library to read from the MCU's ADC.
 constexpr int joystick_pin_x = A1;
 constexpr int joystick_pin_y = A0;
 
-// @
+// @/
 
 // @+'sensors setup'
 pinMode(joystick_pin_x, INPUT);
 pinMode(joystick_pin_y, INPUT);
 
-// @
+// @/
 
 // @+'read sensors'
 static OSCMessage& joystick = bundle.add("/joystick");
 joystick.set(0, analogRead(joystick_pin_x));
 joystick.set(1, analogRead(joystick_pin_y));
 
-// @
+// @/
 ```
 
 ## ADS1219 sensors
@@ -210,7 +210,7 @@ the slide position sensor (sps) and the sensors that share the other ADS1219.
 ```c++
 // @+'includes'
 #include "ADS1219.h"
-// @
+// @/
 
 // @+'global definitions'
 using namespace ADS1219;
@@ -223,7 +223,7 @@ constexpr Address misc_adc_address(ADDR0::DVDD, ADDR1::DGND);
 ADS1219_ADC misc_adc(misc_adc_address, Wire);
 constexpr MUX misc_channels[] = {MUX::AIN0, MUX::AIN1, MUX::AIN2, MUX::AIN3};
 
-// @
+// @/
 
 // @+'sensors setup'
 sps_adc.set_config( MUX::AIN0_AIN1
@@ -240,7 +240,7 @@ misc_adc.set_config( MUX::AIN0
               );
 misc_adc.start_conversion();
 
-// @
+// @/
 
 // @+'read sensors'
 static OSCMessage& sps = bundle.add("/slide_position");
@@ -273,7 +273,7 @@ static OSCMessage * misc[4] = { &bundle.add("/trigger")
     }
 }
 
-// @
+// @/
 ```
 
 ## MIMU
@@ -287,7 +287,7 @@ the MIMU libraries.
 #include "MIMU_MPU9250.h"
 #include "MIMUCalibrator.h"
 #include "MIMUFusion.h"
-// @
+// @/
 
 // @+'global definitions'
 MIMU_MPU9250 mimu;
@@ -297,13 +297,13 @@ MIMUFusionFilter mimu_filter;
 MIMUReading reading = MIMUReading::Zero();
 Quaternion mimu_zero = Quaternion::Identity();
 
-// @
+// @/
 
 // @+'sensors setup'
 mimu.setup();
 mimu_calibrator.setup();
 mimu_filter.setup();
-// @
+// @/
 ```
 
 Reading the sensors, correcting the errors in their output based on the
@@ -321,7 +321,7 @@ void mimu_tick()
     mimu_filter.fuse(reading.accl, reading.gyro, reading.magn);
 }
 
-// @
+// @/
 ```
 
 After ticking the MIMU, the orientation is zeroed and converted to two useful
@@ -345,7 +345,7 @@ osc_set_floats(zeroed.coeffs().data(), 4, quat);
 static OSCMessage& mtrx = bundle.add("/mtrx");
 osc_set_floats(zeroed_matrix.data(),   9, mtrx);
 
-// @
+// @/
 ```
 
 Based on the matrix, the normal vector can be extracted; this unit vector
@@ -357,7 +357,7 @@ static OSCMessage& normal = bundle.add("/normal");
 auto normal_vector = zeroed_matrix.col(1);
 osc_set_floats(normal_vector.data(), 3, normal);
 
-// @
+// @/
 ```
 
 The normal vector always lies on the surface of a unit sphere. Sometimes it is
@@ -365,7 +365,7 @@ useful to project the vector further, so that it lies on a unit cube. The
 following routine performs this mapping:
 
  ```c++
-// @='read sensors'
+// @+'read sensors'
 static OSCMessage& cubeal = bundle.add("/cubeal");
 {
     float x = fabs(normal_vector.x());
@@ -373,10 +373,10 @@ static OSCMessage& cubeal = bundle.add("/cubeal");
     float z = fabs(normal_vector.z());
     float max = x > y ? x : y;
     max = max > z ? max : z;
-    auto cubeal_vector = normal_vector / max;
+    Vector cubeal_vector = normal_vector / max;
     osc_set_floats(cubeal_vector.data(), 3, cubeal);
 }
-// @
+// @/
 ```
 
 ### initializing the orientation sensor fusion filter
@@ -407,13 +407,13 @@ void mimu_initialize()
 
     mimu_filter.fc.k_P = originalkp; // reset k_P
 }
-// @
+// @/
 
 This is called at the end of the `setup` routine.
 
 // @='initialize mimu filter'
 mimu_initialize();
-// @
+// @/
 ```
 
 ### setting the orientation sensor alignment
@@ -444,7 +444,7 @@ bool any_button_pressed()
     return false;
 }
 
-// @
+// @/
 
 Before measuring the first position, the current alignment is reset so that the
 unaligned sensor readings can still have their non-alignment errors compensated
@@ -456,7 +456,7 @@ current presumably incorrect alignment constants).
 void mimu_align()
 {
     mimu_calibrator.resetAlignment();
-// @
+// @/
 ```
 
 The routine then waits indefinitely until the player's signal is received, and
@@ -472,7 +472,7 @@ mubone's y-axis from the sensor's frame of reference.
     reading = mimu.readForMillis(3000);
     mimu_calibrator.calibrate(reading);
     Vector ybasis(reading.accl);
-// @
+// @/
 ```
 
 After a second indefinite wait for the player's signal, the second measurement
@@ -492,7 +492,7 @@ stored with the other calibration contants.
     Vector zbasis(reading.accl);
 
     mimu_calibrator.setAlignment(ybasis, zbasis);
-// @
+// @/
 ```
 
 After the alignment is set, the fusion filter is re-initialized based on the
@@ -503,7 +503,7 @@ new sensor-local frame of reference.
     mimu_initialize();
 } 
 
-// @
+// @/
 ```
 
 ### calibrating the orientation sensor
@@ -531,7 +531,7 @@ void mimu_calibrate()
     }
 }
 
-// @
+// @/
 ```
 
 ## setting the sensors' zero points
@@ -552,7 +552,7 @@ consequence.
 Vector ybasis = mimu_filter.rotation.col(1);
 float azimuth = std::atan2(ybasis.y(), ybasis.x());
 mimu_zero = AngleAxis(azimuth, Vector::UnitZ());
-// @
+// @/
 ```
 
 A somewhat related concept, the slide position sensor's output is accumulated
@@ -568,7 +568,7 @@ void zero_sensors()
 {
     @{zero orientation}
 }
-// @
+// @/
 ```
 
 ## sending OSC output
@@ -594,12 +594,12 @@ void send_osc(SLIP_T& serial, OSCBundle& bundle, OSCBundle& error_messages)
         error_messages.empty();
     }
 }
-// @
+// @/
 
 // @='transmit OSC messages'
 send_osc(usbserial, bundle, error_messages);
 //send_osc(hwserial, bundle, error_messages);
-// @
+// @/
 ```
 
 ## receiving OSC inputs
@@ -624,7 +624,7 @@ instantiated.
 ```c++
 // @+'includes'
 enum OSCInState {WAITING, MESSAGE, BUNDLE};
-// @
+// @/
 
 // @+'global definitions'
 template<class SLIP_T>
@@ -645,12 +645,12 @@ void receive_osc(SLIP_T& serial)
     if      (state == MESSAGE) state = receive_osc_inner(serial, msg_in, state);
     else if (state == BUNDLE)  state = receive_osc_inner(serial, bundle_in, state);
 }
-// @
+// @/
 
 // @+'receive OSC messages'
 receive_osc(usbserial);
 //receive_osc(hwserial);
-// @
+// @/
 ```
 
 Because serial lines are not inherently packet-oriented, it's possible that
@@ -684,7 +684,7 @@ OSCInState receive_osc_inner(SLIP_T& serial, OSCContainer& osc, OSCInState initi
     }
     return initial_state;
 }
-// @
+// @/
 ```
 
 For full flexibility, a custom dispatch routine is used. The bundle dispatcher
@@ -702,7 +702,7 @@ void osc_dispatch(OSCBundle& bundle)
     }
 }
 
-// @
+// @/
 ```
 
 Many incoming messages simply require the arguments of the OSC message to be
@@ -734,7 +734,7 @@ bool set_floats(float * value, OSCMessage& msg, int n = 1)
     return true;
 }
 
-// @
+// @/
 ```
 
 Finally, the message dispatcher simply checks if the given OSC message matches
@@ -776,7 +776,7 @@ void osc_dispatch(OSCMessage& msg)
     else if (msg.fullMatch("/filter_coefficients/k_m")) set_floats(&mimu_filter.fc.k_m, msg);
 }
 
-// @
+// @/
 ```
 
 # esp.ino
@@ -795,12 +795,12 @@ the ESP detects while scanning.
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h> 
-// @
+// @/
 
 // @+'connect to the network'
 WiFiManager wifiman;
 wifiman.autoConnect("mubone");
-// @
+// @/
 ```
 
 Once the connection is established, the local IP address can be inspected. This
@@ -811,12 +811,12 @@ broadcast to all devices on the network.
 // @+'esp definitions'
 IPAddress device_address;
 IPAddress output_address;
-// @
+// @/
 
 // @+'connect to the network'
 device_address = WiFi.localIP();
 output_address = device_address;
 output_address[3] = 255; // broadcast;
-// @
+// @/
 ```
 

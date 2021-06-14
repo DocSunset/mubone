@@ -90,6 +90,7 @@ void mimu_align()
     Vector zbasis(reading.accl);
 
     mimu_calibrator.setAlignment(ybasis, zbasis);
+    mimu_initialize();
 } 
 
 void mimu_calibrate()
@@ -136,7 +137,6 @@ void receive_osc(SLIP_T& serial)
     static OSCInState state = WAITING;
     if (state == WAITING)
     {
-        error_messages.add("/debug/waiting_for_input");
         if (serial.available())
         {
             if (serial.peek() == '#') state = BUNDLE;
@@ -144,16 +144,8 @@ void receive_osc(SLIP_T& serial)
         }
     }
     
-    if      (state == MESSAGE) 
-    {
-        error_messages.add("/debug/we_got_a_message");
-        state = receive_osc_inner(serial, msg_in, state);
-    }
-    else if (state == BUNDLE)  
-    {
-        error_messages.add("/debug/we_got_a_bundle");
-        state = receive_osc_inner(serial, bundle_in, state);
-    }
+    if      (state == MESSAGE) state = receive_osc_inner(serial, msg_in, state);
+    else if (state == BUNDLE)  state = receive_osc_inner(serial, bundle_in, state);
 }
 template<class SLIP_T, class OSCContainer>
 OSCInState receive_osc_inner(SLIP_T& serial, OSCContainer& osc, OSCInState initial_state)
@@ -234,52 +226,51 @@ void setup()
 {
     usbserial.begin(2000000);
     //hwserial.begin(2000000);
-Wire.begin();
+    Wire.begin();
 
     for (const auto& pin : button_pins) pinMode(pin, INPUT_PULLUP);
-    
-pinMode(joystick_pin_x, INPUT);
+
+    pinMode(joystick_pin_x, INPUT);
     pinMode(joystick_pin_y, INPUT);
-    
-sps_adc.set_config( MUX::AIN0_AIN1
+
+    sps_adc.set_config( MUX::AIN0_AIN1
                   , RATE::SPS1000
                   , MODE::CONTINUOUS
                   , VREF::EXTERN
                   );
     sps_adc.start_conversion();
-    
+
     misc_adc.set_config( MUX::AIN0
                   , RATE::SPS1000
                   , MODE::CONTINUOUS
                   , VREF::EXTERN
                   );
     misc_adc.start_conversion();
-    
-mimu.setup();
+
+    mimu.setup();
     mimu_calibrator.setup();
     mimu_filter.setup();
 
     mimu_initialize();
-    delay(5000);
 }
 
 void loop()
 {
     static OSCBundle bundle;
-    
-static OSCMessage& buttons = bundle.add("/buttons");
+
+    static OSCMessage& buttons = bundle.add("/buttons");
     for (int i = 0; i < num_buttons; ++i) 
     {
         const int pin = button_pins[i];
         const int reading = digitalRead(pin);
         buttons.set(i, reading);
     }
-    
-static OSCMessage& joystick = bundle.add("/joystick");
+
+    static OSCMessage& joystick = bundle.add("/joystick");
     joystick.set(0, analogRead(joystick_pin_x));
     joystick.set(1, analogRead(joystick_pin_y));
-    
-static OSCMessage& sps = bundle.add("/slide_position");
+
+    static OSCMessage& sps = bundle.add("/slide_position");
     {
         static int pot = 0;
         if (sps_adc.data_ready())
@@ -291,7 +282,7 @@ static OSCMessage& sps = bundle.add("/slide_position");
             ret = sps_adc.modify_config(sps_channels[pot]);
         }
     }
-    
+
     static OSCMessage * misc[4] = { &bundle.add("/trigger")
                                   , &bundle.add("/joint/x")
                                   , &bundle.add("/joint/z")
@@ -308,11 +299,11 @@ static OSCMessage& sps = bundle.add("/slide_position");
             ret = misc_adc.modify_config(misc_channels[pot]);
         }
     }
-    
-mimu_tick();
+
+    mimu_tick();
     auto zeroed = mimu_zero * mimu_filter.q;
     auto zeroed_matrix = zeroed.toRotationMatrix();
-    
+
     static OSCMessage& accl = bundle.add("/accl");
     osc_set_floats(reading.accl.data(),    3, accl);
     static OSCMessage& gyro = bundle.add("/gyro");
@@ -323,11 +314,21 @@ mimu_tick();
     osc_set_floats(zeroed.coeffs().data(), 4, quat);
     static OSCMessage& mtrx = bundle.add("/mtrx");
     osc_set_floats(zeroed_matrix.data(),   9, mtrx);
-    
-static OSCMessage& normal = bundle.add("/normal");
+
+    static OSCMessage& normal = bundle.add("/normal");
     auto normal_vector = zeroed_matrix.col(1);
     osc_set_floats(normal_vector.data(), 3, normal);
-    
+
+    static OSCMessage& cubeal = bundle.add("/cubeal");
+    {
+        float x = fabs(normal_vector.x());
+        float y = fabs(normal_vector.y());
+        float z = fabs(normal_vector.z());
+        float max = x > y ? x : y;
+        max = max > z ? max : z;
+        Vector cubeal_vector = normal_vector / max;
+        osc_set_floats(cubeal_vector.data(), 3, cubeal);
+    }
     receive_osc(usbserial);
     //receive_osc(hwserial);
     send_osc(usbserial, bundle, error_messages);

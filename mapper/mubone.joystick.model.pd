@@ -1,4 +1,4 @@
-#N canvas 0 49 940 1001 12;
+#N canvas 415 169 1061 915 12;
 #X floatatom 213 99 5 0 0 0 - - -;
 #X obj 24 183 expr $f1 * sqrt(1 - ($f2 * $f2 / 2));
 #X obj 273 116 t f f;
@@ -14,9 +14,9 @@
 #X obj 24 12 inlet;
 #X obj 24 309 outlet;
 #X obj 357 294 outlet;
-#X obj 24 49 unpack f f;
-#X obj 24 87 expr $f1 / (2*\$1) - 1;
-#X obj 273 85 expr $f1 / (2*\$1) - 1;
+#X obj 24 87 mubone.linmap 0 \$1 -1 1;
+#X obj 273 85 mubone.linmap 0 \$1 -1 1;
+#X obj 269 14 inlet;
 #X connect 1 0 10 0;
 #X connect 2 0 1 1;
 #X connect 2 1 4 1;
@@ -35,8 +35,7 @@
 #X connect 11 1 6 1;
 #X connect 11 2 8 1;
 #X connect 12 0 15 0;
-#X connect 15 0 16 0;
-#X connect 15 1 17 0;
-#X connect 16 0 3 0;
-#X connect 17 0 0 0;
-#X connect 17 0 2 0;
+#X connect 15 0 3 0;
+#X connect 16 0 0 0;
+#X connect 16 0 2 0;
+#X connect 17 0 16 0;

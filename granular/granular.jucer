@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="NcJlO3" name="MuGranular" projectType="guiapp" jucerVersion="5.4.7"
+<JUCERPROJECT id="NcJlO3" name="granular" projectType="guiapp" jucerVersion="5.4.7"
               reportAppUsage="0" version="0.0.5" cppLanguageStandard="17">
-  <MAINGROUP id="vM1d1w" name="MuGranular">
+  <MAINGROUP id="vM1d1w" name="granular">
     <GROUP id="{6801AAEA-3F0A-B082-4FE8-40CD340BE24E}" name="Test">
       <FILE id="DCUJzA" name="cloud.cpp" compile="1" resource="0" file="Test/cloud.cpp"/>
       <GROUP id="{544322E5-7840-2165-4171-E6F223C741A0}" name="Test"/>

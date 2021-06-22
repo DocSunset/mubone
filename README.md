@@ -5,8 +5,10 @@ the hand, the slide is moved via a digital controller. As well as several
 buttons and potentiometers on the controller, a mubone also senses the
 orientation of the controller relative to the brass, the orientation of the
 brass relative to the world, and the position of the slide. Mubones are like
-trombones; they are a type of instrument that anyone can, in principle, make and
-play. There is not a single capital-M "Mubone".
+trombones; they are a type of instrument that anyone can, in principle, make
+and play. There is not a single capital-M authoritative "The" instrument that
+is called "The Mubone". We have a mubone that we made ourselves. At least in
+principle, so could you.
 
 This repository presents the implementation of the most recent incarnation of
 this overall instrument identity, designed by Travis West and Kalun Leung.
@@ -133,34 +135,46 @@ conditioning their signals, as well as to somewhat simplify prototyping.
 
 ## applications
 
-### sensor model
+### mapper/mubone.input.pd
 
-This JUCE application reads the sensors over the network and conditions,
+This Pure Data patch reads the sensors over the network and conditions,
 combines, and analyses the raw data to produce additional useful gesture
-features. The raw data and analysed features are then re-broadcast over OSC for
-further use by other applications.
+features. The raw data and analysed features are then re-broadcast over Pd send
+channels for further mapping within Pd, and eventually to be forwarded to other
+applications using any of Pd's available transport capabilities.
 
 As much as possible, this application is used as a rapid prototyping tool for
 gesture-feature extraction algorithms that can ultimately be integrated in the
 device firmware. 
 
-This application is currently integrated into the granular software, but will
-eventually be decoupled from the latter. Furthermore, the current version
-doesn't support reading the sensors via SLIPSerial, so it won't work with the
-MK3 hardware until after UDP/WiFi support is implemented.
+To run the patch, you will need to install Pure Data, as well as the `slip` and
+`comport` externals, both available through Pd's built in Dekken package
+manager. Many thanks to the current maintainers of those externals, and the
+Pd community in general.
 
 ### granular
 
-This JUCE application creates a spatial recorder and granulator allowing sounds
-to be placed at locations in space around the player and later granulated by
-pointing the mubone towards those locations. This is the original mubone
-application. A pure data patch is used to achieve the mapping (still in
-progress), so in principle the granulator could be used with any controller
-that provides a spatial signal to use for positioning and recalling sounds.
+This JUCE application creates a spatial sound recorder and granulator allowing
+sounds to be placed at locations in space around the player and later
+granulated by pointing the mubone towards those locations. This is the original
+mubone application. A pure data patch is used to achieve the mapping
+(mapper/mubone.granular_mapping.pd), so in principle the granulator could be
+used with any controller that provides a 3D spatial signal to use for
+positioning and recalling sounds. Technically any 3D signal could be used.
 
-### pure data patches
+#### installation
 
-Currently, a tester.pd patch is provided for viewing raw output from the
-hardware. This will most likely serve (after some more development) as an
-interim sensor model application until such time as the C++ version is working
-again.
+First clone this repository and its submodules:
+
+```sh
+cd ~/wherever/you/happen/to/keep/github/repos
+git clone git@github.com:DocSunset/mubone.git # or use http
+git submodule update --init --recursive
+```
+
+Open granular/granular.jucer in the Projucer application. Saving the project
+will cause the Projucer to export build resources in the granular/Builds
+directory. Use your platform's native build tools to build the release target
+of the application. On Linux you may need to navigate to the Makefile manually
+and run `make` from the terminal. On other platforms you should be able to
+launch the native IDE from the Projucer.

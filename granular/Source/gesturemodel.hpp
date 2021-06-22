@@ -6,9 +6,9 @@
 #include "parameters.hpp"
 #include "sensorreceiver.hpp"
 
-#include <simple/delay.h>
-#include <simple/filters.h>
-#include <simple/constants/pi.h>
+#include <../3rdparty/simplesound/simple/delay.h>
+#include <../3rdparty/simplesound/simple/filters.h>
+#include <../3rdparty/simplesound/simple/constants/pi.h>
 
 #include <cmath>
 

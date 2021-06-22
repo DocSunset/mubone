@@ -10,7 +10,7 @@
 
 #pragma once
 #include <cmath>
-#include <simple/constants/pi.h>
+#include <../3rdparty/simplesound/simple/constants/pi.h>
 
 namespace mubone
 {

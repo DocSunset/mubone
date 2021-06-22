@@ -13,7 +13,7 @@
 
 #include "linalgtypes.h"
 
-#include <simple/constants/pi.h>
+#include <../3rdparty/simplesound/simple/constants/pi.h>
 
 #include <list>
 #include <vector>

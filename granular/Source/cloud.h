@@ -14,8 +14,8 @@
 #include "audiosphere.h"
 #include "grain.h"
 #include "window.h"
-#include <simple/synchronoustrigger.h>
-#include <simple/interpolators.h>
+#include <../3rdparty/simplesound/simple/synchronoustrigger.h>
+#include <../3rdparty/simplesound/simple/interpolators.h>
 
 #include <array>
 

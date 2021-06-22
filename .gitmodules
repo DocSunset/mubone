@@ -1,0 +1,6 @@
+[submodule "granular/3rdparty/readerwriterqueue"]
+	path = granular/3rdparty/readerwriterqueue
+	url = git@github.com:cameron314/readerwriterqueue.git
+[submodule "granular/3rdparty/simplesound"]
+	path = granular/3rdparty/simplesound
+	url = git@github.com:DocSunset/simplesound.git

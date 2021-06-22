@@ -4,12 +4,12 @@
 
 #include "oscreceiver.hpp"
 
-#include <simple/boundaries.h>
-#include <simple/constants/pi.h>
+#include <../3rdparty/simplesound/simple/boundaries.h>
+#include <../3rdparty/simplesound/simple/constants/pi.h>
 #include <cmath>
 
-#include "readerwriterqueue.h"
-#include "atomicops.h"
+#include "../3rdparty/readerwriterqueue/readerwriterqueue.h"
+#include "../3rdparty/readerwriterqueue/atomicops.h"
 
 namespace mubone::synthesis
 {

@@ -14,7 +14,7 @@
 #include "audiosphere.h"
 #include "cloud.h"
 #include "repeatermacro.h"
-#include <simple/boundaries.h>
+#include <../3rdparty/simplesound/simple/boundaries.h>
 
 namespace mubone::synthesis
 {

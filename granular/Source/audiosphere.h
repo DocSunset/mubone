@@ -14,7 +14,7 @@
 #include "linalgtypes.h"
 #include "soundobject.h"
 #include "soundobjectlist.h"
-#include <simple/circularbuffer.h>
+#include "../3rdparty/simplesound/simple/circularbuffer.h"
 // #include "cloudmanager.h"
 
 #include <memory>

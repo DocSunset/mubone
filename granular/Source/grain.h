@@ -11,7 +11,7 @@
 #pragma once
 #include "soundobject.h"
 #include "window.h"
-#include <simple/boundaries.h>
+#include <../3rdparty/simplesound/simple/boundaries.h>
 
 namespace mubone
 {

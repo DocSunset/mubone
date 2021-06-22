@@ -1,11 +1,11 @@
 #pragma once
 
 #include "linalgtypes.h"
-#include <simple/circularbuffer.h>
+#include <../3rdparty/simplesound/simple/circularbuffer.h>
 #include "soundobject.h"
 
-#include "readerwriterqueue.h"
-#include "atomicops.h"
+#include "../3rdparty/readerwriterqueue/readerwriterqueue.h"
+#include "../3rdparty/readerwriterqueue/atomicops.h"
 
 #include <list>
 #include <vector>

@@ -333,6 +333,7 @@ readings, these orientation representations are added to the OSC bundle.
 mimu_tick();
 auto zeroed = mimu_zero * mimu_filter.q;
 auto zeroed_matrix = zeroed.toRotationMatrix();
+auto accl_zerog = mimu_filter.getZeroGravityAccl();
 
 static OSCMessage& accl = bundle.add("/accl");
 osc_set_floats(reading.accl.data(),    3, accl);
@@ -344,6 +345,8 @@ static OSCMessage& quat = bundle.add("/quat");
 osc_set_floats(zeroed.coeffs().data(), 4, quat);
 static OSCMessage& mtrx = bundle.add("/mtrx");
 osc_set_floats(zeroed_matrix.data(),   9, mtrx);
+static OSCMessage& zerog = bundle.add("/zerog");
+osc_set_floats(accl_zerog.data(),      3, zerog);
 
 // @/
 ```
@@ -378,6 +381,8 @@ static OSCMessage& cubeal = bundle.add("/cubeal");
 }
 // @/
 ```
+
+TODO?: inclination, roll, azimuth, shake, swing, jab
 
 ### initializing the orientation sensor fusion filter
 
@@ -774,6 +779,8 @@ void osc_dispatch(OSCMessage& msg)
     else if (msg.fullMatch("/filter_coefficients/k_a")) set_floats(&mimu_filter.fc.k_a, msg);
     //     magnetometer influence
     else if (msg.fullMatch("/filter_coefficients/k_m")) set_floats(&mimu_filter.fc.k_m, msg);
+
+    // TODO: save calibration and filter coefficients to eeprom
 }
 
 // @/

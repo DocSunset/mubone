@@ -60,14 +60,25 @@ public:
     void disconnect() {osc.disconnect();}
     ~QueuedReceiver() {disconnect();}
 
+    void enqueue_siglist()
+    {
+        SignalList& newlist = OSCReceiver<SignalList>::siglist;
+        synthesis_parameter_mapping(newlist, previous_list);
+        gui_queue.try_enqueue(newlist);
+        audio_queue.try_enqueue(newlist);
+    }
+
+    void extra_message_handler(const juce::OSCMessage& message) override
+    {
+        if (not OSCReceiver<SignalList>::handling_bundle) enqueue_siglist();
+    }
+
     void extra_bundle_handler(const juce::OSCBundle& bundle) override
     {
         if (OSCReceiver<SignalList>::messages_handled > 0)
         {
-            SignalList& newlist = OSCReceiver<SignalList>::siglist;
-            synthesis_parameter_mapping(newlist, previous_list);
-            gui_queue.try_enqueue(newlist);
-            audio_queue.try_enqueue(newlist);
+            enqueue_siglist();
+            OSCReceiver<SignalList>::messages_handled = 0;
         }
     }
 

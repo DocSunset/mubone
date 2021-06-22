@@ -1,4 +1,4 @@
-#N canvas 0 49 924 1001 12;
+#N canvas 924 49 756 485 12;
 #X obj 32 952 netsend -u -b;
 #X obj 32 839 loadbang;
 #X msg 32 864 connect localhost 8008;
@@ -10,7 +10,7 @@
 #X obj 613 705 oscformat sound_recording;
 #X obj 332 111 oscformat direction;
 #X obj 332 136 s granular_description;
-#X obj 377 785 s granular_description;
+#X obj 732 511 s granular_description;
 #X obj 35 502 s granular_description;
 #X obj 445 903 s granular_description;
 #X obj 35 179 s granular_description;
@@ -19,7 +19,7 @@
 #X obj 659 833 s granular_state;
 #X obj 684 888 s granular_state;
 #X obj 714 938 s granular_state;
-#X obj 377 761 oscformat search_angle;
+#X obj 732 487 oscformat search_angle;
 #X obj 35 477 oscformat frequency;
 #X obj 445 878 oscformat playback_rate;
 #X obj 35 154 oscformat amplitude;
@@ -42,7 +42,7 @@
 #X obj 242 291 r granular_max_freq;
 #X obj 242 323 log 2;
 #X obj 36 32 hsl 128 15 0 1024 0 0 empty empty empty -2 -8 0 10 -262144
--1 -1 0 1;
+-1 -1 2900 1;
 #X obj 33 52 / 1024;
 #X obj 38 229 hsl 128 15 0 1024 0 0 empty empty empty -2 -8 0 10 -262144
 -1 -1 300 1;
@@ -67,6 +67,10 @@
 #X obj 464 393 mubone.linmap -180 180 -13 6;
 #X obj 464 291 mubone.linmap 0 1024 -180 180;
 #X obj 332 78 r mubone_normal;
+#X obj 739 412 hsl 128 15 0 360000 0 0 empty empty empty -2 -8 0 10
+-262144 -1 -1 0 1;
+#X obj 736 432 / 1000;
+#X floatatom 804 454 5 0 0 0 - - -;
 #X connect 1 0 2 0;
 #X connect 2 0 0 0;
 #X connect 3 0 0 0;
@@ -120,3 +124,6 @@
 #X connect 61 0 54 0;
 #X connect 62 0 61 0;
 #X connect 63 0 9 0;
+#X connect 64 0 65 0;
+#X connect 65 0 66 0;
+#X connect 65 0 20 0;

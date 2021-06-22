@@ -81,20 +81,27 @@ public:
     void oscBundleReceived(const juce::OSCBundle& bundle) override
     {
         messages_handled = 0;
+        handling_bundle = true;
         for (const auto& element : bundle)
         {
             if (element.isMessage()) oscMessageReceived(element.getMessage());
-            else oscBundleReceived(element.getBundle());
+            else 
+            {
+                oscBundleReceived(element.getBundle());
+                handling_bundle = true;
+            }
         }
         if (messages_handled > 0)
         {
             for (auto l : listeners) l->oscBundleReceived(siglist);
         }
         extra_bundle_handler(bundle);
+        handling_bundle = false;
     }
 
     SignalList siglist;
     int messages_handled;
+    bool handling_bundle;
 private:
     std::vector<Listener*> listeners;
 };

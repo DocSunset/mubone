@@ -1,0 +1,38 @@
+#N canvas 0 49 789 1001 12;
+#X declare -path slip;
+#X obj 14 143 comport;
+#X obj 79 194 print ports;
+#X msg 124 108 close;
+#X obj 14 195 slipdec;
+#X msg 14 106 open \$1;
+#X floatatom 15 30 5 0 0 2 port_number - -;
+#X msg 80 140 devices \, ports;
+#X obj 56 35 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0 1
+;
+#X obj 64 75 sel 1 0;
+#X obj 14 78 0;
+#X obj 76 35 bng 15 250 50 0 empty empty (check_ports) 17 7 0 10 -262144
+-1 -1;
+#X obj 223 8 declare -path slip;
+#X obj 14 298 netsend -u -b;
+#X msg 53 265 connect localhost 6000;
+#X obj 224 84 netreceive 6006 -u -b;
+#X obj 224 109 slipenc;
+#X obj 53 236 loadbang;
+#X connect 0 0 3 0;
+#X connect 0 1 1 0;
+#X connect 2 0 0 0;
+#X connect 3 0 12 0;
+#X connect 4 0 0 0;
+#X connect 5 0 9 1;
+#X connect 6 0 0 0;
+#X connect 7 0 8 0;
+#X connect 8 0 9 0;
+#X connect 8 1 2 0;
+#X connect 9 0 4 0;
+#X connect 10 0 6 0;
+#X connect 13 0 12 0;
+#X connect 14 0 15 0;
+#X connect 15 0 0 0;
+#X connect 16 0 13 0;
+#X coords 0 -1 1 1 160 60 2 10 10;

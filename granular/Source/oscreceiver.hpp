@@ -1,12 +1,11 @@
 #pragma once
 
-#include "../JuceLibraryCode/JuceHeader.h"
+#include <vector>
+#include <type_traits>
 
 #include "linalgtypes.h"
 #include "parameters.hpp"
-
-#include <vector>
-#include <type_traits>
+#include "../JuceLibraryCode/JuceHeader.h"
 
 namespace mubone
 {

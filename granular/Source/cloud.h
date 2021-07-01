@@ -9,15 +9,18 @@
 */
 
 #pragma once
-#include "../JuceLibraryCode/JuceHeader.h"
+
+#include <array>
+
+#include <../3rdparty/simplesound/simple/synchronoustrigger.h>
+#include <../3rdparty/simplesound/simple/interpolators.h>
+
 #include "parameters.hpp"
 #include "audiosphere.h"
 #include "grain.h"
 #include "window.h"
-#include <../3rdparty/simplesound/simple/synchronoustrigger.h>
-#include <../3rdparty/simplesound/simple/interpolators.h>
+#include "../JuceLibraryCode/JuceHeader.h"
 
-#include <array>
 
 namespace mubone::synthesis
 {

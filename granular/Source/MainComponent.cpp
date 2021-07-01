@@ -1,7 +1,7 @@
-#include "MainComponent.h"
+#include <cmath>
 #include "parameters.hpp"
 #include "list.hpp"
-#include <cmath>
+#include "MainComponent.h"
 
 using namespace mubone;
 using namespace mubone::synthesis;

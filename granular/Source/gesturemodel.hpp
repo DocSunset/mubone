@@ -1,20 +1,18 @@
 #pragma once
 
-#include "../JuceLibraryCode/JuceHeader.h"
-
-#include "linalgtypes.h"
-#include "parameters.hpp"
-#include "sensorreceiver.hpp"
+#include <cmath>
+#include <exception>
+#include <typeinfo>
+#include <stdexcept>
 
 #include <../3rdparty/simplesound/simple/delay.h>
 #include <../3rdparty/simplesound/simple/filters.h>
 #include <../3rdparty/simplesound/simple/constants/pi.h>
 
-#include <cmath>
-
-#include <exception>
-#include <typeinfo>
-#include <stdexcept>
+#include "linalgtypes.h"
+#include "parameters.hpp"
+#include "sensorreceiver.hpp"
+#include "../JuceLibraryCode/JuceHeader.h"
 
 namespace mubone::gesture
 {

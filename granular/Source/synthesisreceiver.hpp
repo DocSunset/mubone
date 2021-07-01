@@ -1,15 +1,16 @@
 #pragma once
 
-#include "../JuceLibraryCode/JuceHeader.h"
 
-#include "oscreceiver.hpp"
+
+#include <cmath>
 
 #include <../3rdparty/simplesound/simple/boundaries.h>
 #include <../3rdparty/simplesound/simple/constants/pi.h>
-#include <cmath>
-
 #include "../3rdparty/readerwriterqueue/readerwriterqueue.h"
 #include "../3rdparty/readerwriterqueue/atomicops.h"
+
+#include "oscreceiver.hpp"
+#include "../JuceLibraryCode/JuceHeader.h"
 
 namespace mubone::synthesis
 {

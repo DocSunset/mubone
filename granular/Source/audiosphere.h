@@ -9,15 +9,17 @@
 */
 
 #pragma once
-#include "../JuceLibraryCode/JuceHeader.h"
-
-#include "linalgtypes.h"
-#include "soundobject.h"
-#include "soundobjectlist.h"
-#include "../3rdparty/simplesound/simple/circularbuffer.h"
-// #include "cloudmanager.h"
 
 #include <memory>
+
+#include "../3rdparty/simplesound/simple/circularbuffer.h"
+#include "linalgtypes.h"
+
+#include "soundobject.h"
+#include "soundobjectlist.h"
+// #include "cloudmanager.h"
+#include "../JuceLibraryCode/JuceHeader.h"
+
 
 namespace mubone
 {

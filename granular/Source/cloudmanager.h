@@ -10,11 +10,12 @@
 
 #pragma once
 
-#include "../JuceLibraryCode/JuceHeader.h"
+#include <../3rdparty/simplesound/simple/boundaries.h>
+
 #include "audiosphere.h"
 #include "cloud.h"
 #include "repeatermacro.h"
-#include <../3rdparty/simplesound/simple/boundaries.h>
+#include "../JuceLibraryCode/JuceHeader.h"
 
 namespace mubone::synthesis
 {

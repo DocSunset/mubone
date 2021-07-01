@@ -9,16 +9,17 @@
 */
 
 #pragma once
-#include "../JuceLibraryCode/JuceHeader.h"
-
-#include "linalgtypes.h"
-
-#include <../3rdparty/simplesound/simple/constants/pi.h>
 
 #include <list>
 #include <vector>
 #include <memory>
 #include <cmath>
+#include <../3rdparty/simplesound/simple/constants/pi.h>
+
+#include "linalgtypes.h"
+
+#include "../JuceLibraryCode/JuceHeader.h"
+
 
 namespace mubone
 {

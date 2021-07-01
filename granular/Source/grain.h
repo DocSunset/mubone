@@ -9,9 +9,11 @@
 */
 
 #pragma once
+
+#include <../3rdparty/simplesound/simple/boundaries.h>
+
 #include "soundobject.h"
 #include "window.h"
-#include <../3rdparty/simplesound/simple/boundaries.h>
 
 namespace mubone
 {

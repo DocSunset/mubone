@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../JuceLibraryCode/JuceHeader.h"
 #include "parameters.hpp"
+#include "../JuceLibraryCode/JuceHeader.h"
+
 using namespace mubone;
 using namespace mubone::synthesis;
 

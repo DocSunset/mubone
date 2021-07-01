@@ -1,17 +1,19 @@
 #pragma once
 
-#include "linalgtypes.h"
-#include <../3rdparty/simplesound/simple/circularbuffer.h>
-#include "soundobject.h"
-
-#include "../3rdparty/readerwriterqueue/readerwriterqueue.h"
-#include "../3rdparty/readerwriterqueue/atomicops.h"
-
 #include <list>
 #include <vector>
 #include <algorithm>
 #include <utility>
 #include <memory>
+
+#include "../3rdparty/readerwriterqueue/readerwriterqueue.h"
+#include "../3rdparty/readerwriterqueue/atomicops.h"
+#include <../3rdparty/simplesound/simple/circularbuffer.h>
+
+#include "linalgtypes.h"
+#include "soundobject.h"
+
+
 
 namespace mubone
 {

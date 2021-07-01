@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../JuceLibraryCode/JuceHeader.h"
 #include <atomic>
 #include <array>
 
@@ -10,6 +9,7 @@
 #include "audiosphere.h"
 #include "cloudmanager.h"
 #include "displaycomponents.h"
+#include "../JuceLibraryCode/JuceHeader.h"
 
 //==============================================================================
 /*

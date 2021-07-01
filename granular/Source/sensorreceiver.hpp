@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../JuceLibraryCode/JuceHeader.h"
 
 #include "parameters.hpp"
 #include "oscreceiver.hpp"
+#include "../JuceLibraryCode/JuceHeader.h"
 
 namespace mubone::sensor
 {

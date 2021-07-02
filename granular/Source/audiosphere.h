@@ -15,7 +15,6 @@
 #include "../3rdparty/simplesound/simple/circularbuffer.h"
 #include "linalgtypes.h"
 
-#include "soundobject.h"
 #include "soundobjectlist.h"
 // #include "cloudmanager.h"
 #include "../JuceLibraryCode/JuceHeader.h"

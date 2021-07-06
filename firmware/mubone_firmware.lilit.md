@@ -93,22 +93,36 @@ needed. The full load and store methods therefore have the following outline:
 void load_persistent_state()
 {
     PersistentState persistent_state;
+    const uint8_t *ptr = (const uint8_t*) &persistent_state;
+    int count = sizeof(PersistentState);
+    EEPtr e = 0x00;
+
     EEPROM.begin();
-    persistent_state = EEPROM.get(0, persistent_state);
+    for (; count; --count, ++e) (*e).update(*ptr++);
     EEPROM.end();
+
     @{distribute persistent state}
 }
 
 void store_persistent_state()
 {
     PersistentState persistent_state;
+    uint8_t *ptr = (uint8_t*) &persistent_state;
+    int count = sizeof(PersistentState)
+    EEPtr e = 0x00;
+
     @{collect persistent state}
-    EEPROM.begin();
-    EEPROM.put(0, persistent_state);
+
+    EEPROM.begin()
+    for (; count; --count, ++e) *ptr++ = *e;
     EEPROM.end();
 }
 // @/
 ```
+
+Note that the above routines assume that the `PersistentState` class is
+trivially copyable or at least acts like it is. The implementer is beholden
+to ensure that this is actually the case.
 
 The full definition of the subroutines for distributing and storing state
 respectively are elaborated in bits and pieces below; wherever state is

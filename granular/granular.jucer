@@ -54,9 +54,11 @@
                keepCustomXcodeSchemes="1" frameworkSearchPaths="/usr/local/lib/"
                extraLinkerFlags="-L/usr/local/lib" extraDefs="DONT_SET_USING_JUCE_NAMESPACE=1">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="0" name="Release" osxCompatibility="10.12 SDK"/>
-        <CONFIGURATION isDebug="1" name="Debug" defines="RUNTESTS=1" osxCompatibility="10.12 SDK"/>
-        <CONFIGURATION isDebug="0" name="ReleaseTest" defines="RUNTESTS=1" osxCompatibility="10.12 SDK"/>
+        <CONFIGURATION isDebug="0" name="Release" osxCompatibility="10.15 SDK" osxArchitecture="Native"/>
+        <CONFIGURATION isDebug="1" name="Debug" defines="RUNTESTS=1" osxCompatibility="10.15 SDK"
+                       osxArchitecture="Native"/>
+        <CONFIGURATION isDebug="0" name="ReleaseTest" defines="RUNTESTS=1" osxCompatibility="10.15 SDK"
+                       osxArchitecture="Native"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../../../Applications/JUCE/modules"/>

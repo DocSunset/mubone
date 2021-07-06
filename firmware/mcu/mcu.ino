@@ -219,13 +219,13 @@ void store_persistent_state()
 {
     PersistentState persistent_state;
     uint8_t *ptr = (uint8_t*) &persistent_state;
-    int count = sizeof(PersistentState)
+    int count = sizeof(PersistentState);
     EEPtr e = 0x00;
 
     persistent_state.mimucc = mimu_calibrator.getCalibration();
     persistent_state.mimufc = mimu_filter.fc;
 
-    EEPROM.begin()
+    EEPROM.begin();
     for (; count; --count, ++e) *ptr++ = *e;
     EEPROM.end();
 }

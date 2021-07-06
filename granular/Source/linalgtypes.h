@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Eigen/Geometry"
-#include "Eigen/Core"
+#include "../3rdparty/Eigen/Geometry"
+#include "../3rdparty/Eigen/Core"
 
 namespace mubone
 {

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="NcJlO3" name="granular" projectType="guiapp" jucerVersion="5.4.7"
-              reportAppUsage="0" version="0.0.5" cppLanguageStandard="17">
+<JUCERPROJECT id="NcJlO3" name="granular" projectType="guiapp" reportAppUsage="0"
+              version="0.0.5" cppLanguageStandard="17" displaySplashScreen="1"
+              jucerFormatVersion="1">
   <MAINGROUP id="vM1d1w" name="granular">
     <GROUP id="{6801AAEA-3F0A-B082-4FE8-40CD340BE24E}" name="Test">
       <FILE id="DCUJzA" name="cloud.cpp" compile="1" resource="0" file="Test/cloud.cpp"/>
@@ -55,8 +56,7 @@
                extraLinkerFlags="-L/usr/local/lib" extraDefs="DONT_SET_USING_JUCE_NAMESPACE=1">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="0" name="Release" osxCompatibility="10.15 SDK" osxArchitecture="Native"/>
-        <CONFIGURATION isDebug="1" name="Debug" defines="RUNTESTS=1" osxCompatibility="10.15 SDK"
-                       osxArchitecture="Native"/>
+        <CONFIGURATION isDebug="1" name="Debug" osxCompatibility="10.15 SDK" osxArchitecture="Native"/>
         <CONFIGURATION isDebug="0" name="ReleaseTest" defines="RUNTESTS=1" osxCompatibility="10.15 SDK"
                        osxArchitecture="Native"/>
       </CONFIGURATIONS>

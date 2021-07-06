@@ -1,3 +1,4 @@
+#include <EEPROM.h>
 #include "OSCBundle.h"
 #include "SLIPEncodedUSBSerial.h"
 //#include "SLIPEncodedSerial.h"
@@ -7,11 +8,18 @@
 #include "MIMUFusion.h"
 enum OSCInState {WAITING, MESSAGE, BUNDLE};
 
+struct PersistentState
+{
+    MIMUCalibrationConstants mimucc;
+    MIMUFilterCoefficients mimufc;
+};
+
 OSCBundle error_messages;
 void osc_set_floats(float * f, int size, OSCMessage& msg)
 {
     for (int i = 0; i < size; ++i) msg.set(i, f[i]);
 }
+
 SLIPEncodedUSBSerial usbserial{Serial};
 //SLIPEncodedSerial hwserial{Serial1};
 
@@ -64,6 +72,7 @@ void mimu_initialize()
 
     mimu_filter.fc.k_P = originalkp; // reset k_P
 }
+
 bool any_button_pressed()
 {
     for (int i = 0; i < num_buttons; ++i) 
@@ -114,6 +123,7 @@ void zero_sensors()
     float azimuth = std::atan2(ybasis.y(), ybasis.x());
     mimu_zero = AngleAxis(azimuth, Vector::UnitZ());
 }
+
 template<class SLIP_T>
 void send_osc(SLIP_T& serial, OSCBundle& bundle, OSCBundle& error_messages)
 {
@@ -147,6 +157,7 @@ void receive_osc(SLIP_T& serial)
     if      (state == MESSAGE) state = receive_osc_inner(serial, msg_in, state);
     else if (state == BUNDLE)  state = receive_osc_inner(serial, bundle_in, state);
 }
+
 template<class SLIP_T, class OSCContainer>
 OSCInState receive_osc_inner(SLIP_T& serial, OSCContainer& osc, OSCInState initial_state)
 {
@@ -189,6 +200,26 @@ bool set_floats(float * value, OSCMessage& msg, int n = 1)
     return true;
 }
 
+void load_persistent_state()
+{
+    PersistentState persistent_state;
+    EEPROM.begin();
+    persistent_state = EEPROM.get(0, persistent_state);
+    EEPROM.end();
+    mimu_calibrator.setCalibration(persistent_state.mimucc);
+    mimu_filter.fc = persistent_state.mimufc;
+}
+
+void store_persistent_state()
+{
+    PersistentState persistent_state;
+    persistent_state.mimucc = mimu_calibrator.getCalibration();
+    persistent_state.mimufc = mimu_filter.fc;
+    EEPROM.begin();
+    EEPROM.put(0, persistent_state);
+    EEPROM.end();
+}
+
 void osc_dispatch(OSCMessage& msg)
 {
     // set the sensors' zero values (mimu and sps)
@@ -210,6 +241,7 @@ void osc_dispatch(OSCMessage& msg)
     else if (msg.fullMatch("/calibration/accl/vector")) set_floats(mimu_calibrator.cc.abias.data(), msg, 3);
     else if (msg.fullMatch("/calibration/gyro/vector")) set_floats(mimu_calibrator.cc.gbias.data(), msg, 3);
     else if (msg.fullMatch("/calibration/magn/vector")) set_floats(mimu_calibrator.cc.mbias.data(), msg, 3);
+    else if (msg.fullMatch("/calibration/commit")) mimu_calibrator.updateTransforms();
 
     // set the fusion filter coefficients
     //     proportional feedback
@@ -220,6 +252,10 @@ void osc_dispatch(OSCMessage& msg)
     else if (msg.fullMatch("/filter_coefficients/k_a")) set_floats(&mimu_filter.fc.k_a, msg);
     //     magnetometer influence
     else if (msg.fullMatch("/filter_coefficients/k_m")) set_floats(&mimu_filter.fc.k_m, msg);
+
+    // save and reload persistent state
+    else if (msg.fullMatch("/persistent_state/load"))  load_persistent_state();
+    else if (msg.fullMatch("/persistent_state/store")) store_persistent_state();
 }
 
 void setup()
@@ -303,6 +339,7 @@ void loop()
     mimu_tick();
     auto zeroed = mimu_zero * mimu_filter.q;
     auto zeroed_matrix = zeroed.toRotationMatrix();
+    auto accl_zerog = mimu_filter.getZeroGravityAccl();
 
     static OSCMessage& accl = bundle.add("/accl");
     osc_set_floats(reading.accl.data(),    3, accl);
@@ -314,6 +351,8 @@ void loop()
     osc_set_floats(zeroed.coeffs().data(), 4, quat);
     static OSCMessage& mtrx = bundle.add("/mtrx");
     osc_set_floats(zeroed_matrix.data(),   9, mtrx);
+    static OSCMessage& zerog = bundle.add("/zerog");
+    osc_set_floats(accl_zerog.data(),      3, zerog);
 
     static OSCMessage& normal = bundle.add("/normal");
     auto normal_vector = zeroed_matrix.col(1);

@@ -54,6 +54,81 @@ void loop()
 
 # mcu.ino
 
+## EEPROM
+
+Some data in memory needs to be stored persistently across power cycles,
+including notably the error correction constants derived from calibration and
+used to compensate for the shortcomings of the magnetometer and other
+sensors. The EEPROM library is well suited to this task. 
+
+```cpp
+// @+'includes'
+#include <EEPROM.h>
+// @/
+```
+
+`EEPROM` class provides a pair of generic functions for storing data of any C++
+type to persistent memory (sometimes flash memory, despite the name of the
+library). Although it's also possible to manually serialize data to and from
+persistent storage, it's most convenient to make use of these generic
+functions, which requires us to define a structure for holding all of the data
+we want to store across power cycles.
+
+```cpp
+// @+'global definitions'
+struct PersistentState
+{
+    @{persistent state}
+};
+
+// @/
+```
+
+Before storing state it's necessary to copy it into the `PersistentState`
+structure, and after loading state it still needs to be copied to where it's
+needed. The full load and store methods therefore have the following outline:
+
+```cpp
+// @='persistent state subroutines'
+void load_persistent_state()
+{
+    PersistentState persistent_state;
+    EEPROM.begin();
+    persistent_state = EEPROM.get(0, persistent_state);
+    EEPROM.end();
+    @{distribute persistent state}
+}
+
+void store_persistent_state()
+{
+    PersistentState persistent_state;
+    @{collect persistent state}
+    EEPROM.begin();
+    EEPROM.put(0, persistent_state);
+    EEPROM.end();
+}
+// @/
+```
+
+The full definition of the subroutines for distributing and storing state
+respectively are elaborated in bits and pieces below; wherever state is
+described that needs saving, the means for collecting and distributing that
+state are given in an adjacent section of the text.
+
+EEPROM has a limited life-span that is reduced by writing data to it. Currently
+we aren't attempting any kind of wear-leveling, but eventually we may wish to
+implement something. The basic strategy would be to include a counter in the
+storage struct that gives an address to store the next write to. Whenever
+writing to EEPROM, the address is incremented before storing it. When loading,
+the entire EEPROM storage is scanned until the largest stored address is
+located; this must be the most recent write, so it is loaded. This strategy is
+effective, but not without its challenges. For instance, if the size of the
+storage struct changes it would invalidate previously written records,
+necessitating that they be reset.
+
+More detail may be found
+[here](https://embeddedgurus.com/stack-overflow/2017/07/eeprom-wear-leveling/).
+
 ## OSC
 
 All of the sensor readings are packed into an OSC bundle which is periodically
@@ -99,6 +174,7 @@ void osc_set_floats(float * f, int size, OSCMessage& msg)
 {
     for (int i = 0; i < size; ++i) msg.set(i, f[i]);
 }
+
 // @/
 ```
 
@@ -412,6 +488,7 @@ void mimu_initialize()
 
     mimu_filter.fc.k_P = originalkp; // reset k_P
 }
+
 // @/
 
 This is called at the end of the `setup` routine.
@@ -439,6 +516,7 @@ The routine waits indefinitely until the player is in position; once there, the
 player can signal their readiness by pressing any button.  The following helper
 checks for the player's signal:
 
+```cpp
 // @+'global definitions'
 bool any_button_pressed()
 {
@@ -450,6 +528,7 @@ bool any_button_pressed()
 }
 
 // @/
+```
 
 Before measuring the first position, the current alignment is reset so that the
 unaligned sensor readings can still have their non-alignment errors compensated
@@ -464,10 +543,10 @@ void mimu_align()
 // @/
 ```
 
-The routine then waits indefinitely until the player's signal is received, and
-then the MIMU is read continuously for three seconds to average out any noise,
-and the vector measured by the accelerometer is taken as a measurement of the
-mubone's y-axis from the sensor's frame of reference.
+The routine then waits indefinitely until the player's signal is received, at
+which time the MIMU is then read continuously for three seconds to average out
+any noise, and the vector measured by the accelerometer is taken as a
+measurement of the mubone's y-axis from the sensor's frame of reference.
 
 ```cpp
 // @+'global definitions'
@@ -539,6 +618,36 @@ void mimu_calibrate()
 // @/
 ```
 
+### persistent state: calibration, alignment, and fusion constants
+
+The alignment data only needs to be updated if the alignment of the MIMU with
+respect to the brass is significantly altered, e.g. if the mubone attachement
+is dropped or the mounting plate is adjusted in some way. The calibration
+constants for the MIMU sensor should change even less often. Both of these
+data structures should be stored persistently to save the player from having to
+re-upload the data every time they play.
+
+Similarly, the fusion filter's coefficients may be adjusted by the player to
+suit their preferences and fine tune the performance of the filter. These
+should also be stored.
+
+```cpp
+// @+'persistent state'
+MIMUCalibrationConstants mimucc;
+MIMUFilterCoefficients mimufc;
+// @/
+
+// @+'collect persistent state'
+persistent_state.mimucc = mimu_calibrator.getCalibration();
+persistent_state.mimufc = mimu_filter.fc;
+// @/
+
+// @+'distribute persistent state'
+mimu_calibrator.setCalibration(persistent_state.mimucc);
+mimu_filter.fc = persistent_state.mimufc;
+// @/
+```
+
 ## setting the sensors' zero points
 
 In most use cases, the orientation of the mubone in relative to the global
@@ -573,8 +682,14 @@ void zero_sensors()
 {
     @{zero orientation}
 }
+
 // @/
 ```
+
+Unlike alignment and calibration, the zero point needs to be set at least
+once very time the instrument is played, and may conceivably be set multiple
+times over the course of a performance. For this reason there's no use in
+saving it persistently.
 
 ## sending OSC output
 
@@ -650,6 +765,7 @@ void receive_osc(SLIP_T& serial)
     if      (state == MESSAGE) state = receive_osc_inner(serial, msg_in, state);
     else if (state == BUNDLE)  state = receive_osc_inner(serial, bundle_in, state);
 }
+
 // @/
 
 // @+'receive OSC messages'
@@ -746,8 +862,14 @@ Finally, the message dispatcher simply checks if the given OSC message matches
 any of the expected addresses. Comments are provided inline for quick reference
 of the intended effect of each of the OSC methods supported by the firmware.
 
+The persistent storage subroutines are inserted at this point in the file,
+which ensures that they will be able to view any global variables declared
+earlier, such as `mimu_calibrator` and the like.
+
 ```cpp
 // @+'global definitions'
+@{persistent state subroutines}
+
 void osc_dispatch(OSCMessage& msg)
 {
     // set the sensors' zero values (mimu and sps)
@@ -769,6 +891,7 @@ void osc_dispatch(OSCMessage& msg)
     else if (msg.fullMatch("/calibration/accl/vector")) set_floats(mimu_calibrator.cc.abias.data(), msg, 3);
     else if (msg.fullMatch("/calibration/gyro/vector")) set_floats(mimu_calibrator.cc.gbias.data(), msg, 3);
     else if (msg.fullMatch("/calibration/magn/vector")) set_floats(mimu_calibrator.cc.mbias.data(), msg, 3);
+    else if (msg.fullMatch("/calibration/commit")) mimu_calibrator.updateTransforms();
 
     // set the fusion filter coefficients
     //     proportional feedback
@@ -780,7 +903,9 @@ void osc_dispatch(OSCMessage& msg)
     //     magnetometer influence
     else if (msg.fullMatch("/filter_coefficients/k_m")) set_floats(&mimu_filter.fc.k_m, msg);
 
-    // TODO: save calibration and filter coefficients to eeprom
+    // save and reload persistent state
+    else if (msg.fullMatch("/persistent_state/load"))  load_persistent_state();
+    else if (msg.fullMatch("/persistent_state/store")) store_persistent_state();
 }
 
 // @/

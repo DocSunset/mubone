@@ -6,7 +6,7 @@ connecting to the network.
 
 The main firmware is contained in the `mcu` sketch:
 
-```c++
+```cpp
 // @#'mcu/mcu.ino'
 @{includes}
 
@@ -31,7 +31,7 @@ void loop()
 
 The ESP8266 firmware is contained in the `esp` sketch:
 
-```c++
+```cpp
 // @#'esp/esp.ino'
 @{esp includes}
 
@@ -72,7 +72,7 @@ The error message bundle has to be global so that subroutines can add error
 messages to the bundle. The sensor bundle on the other hand is declared
 statically before reading sensors.
 
-```c++
+```cpp
 // @+'includes'
 #include "OSCBundle.h"
 // @/
@@ -93,7 +93,7 @@ appropriate address. This ensures that messages are only allocated once.
 Data is added to the messages using the built in `msg.set()` method, or the
 following helper function:
 
-```c++
+```cpp
 // @+'global definitions'
 void osc_set_floats(float * f, int size, OSCMessage& msg)
 {
@@ -112,7 +112,7 @@ simple.
 Note: at the time of writing, hardware serial is disabled since the esp firmware
 is still a work in progress.
 
-```c++
+```cpp
 // @+'includes'
 #include "SLIPEncodedUSBSerial.h"
 //#include "SLIPEncodedSerial.h"
@@ -135,7 +135,7 @@ The Arduino Wire library is used to interact with the I2C bus. All of the I2C
 sensors use the default global Wire instance, so not much is needed to get
 things up and running.
 
-```c++
+```cpp
 // @+'comms setup'
 Wire.begin();
 // @/
@@ -148,7 +148,7 @@ the MCU pin the button is attached to keeps the pin at a logical high voltage
 until the button is pressed, connecting the pin directly to ground and
 producing a logical low value.
 
-```c++
+```cpp
 // @+'global definitions'
 constexpr int num_buttons = 8;
 constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 11};
@@ -178,7 +178,7 @@ The joystick button is read alongside all the other buttons. Its analog signals
 are handled independently, but in a similarly simple manner using the Arduino
 library to read from the MCU's ADC.
 
-```c++
+```cpp
 // @+'global definitions'
 constexpr int joystick_pin_x = A1;
 constexpr int joystick_pin_y = A0;
@@ -207,7 +207,7 @@ The firmware has to keep track of which channel of the ADC is being read, and
 has to manually cycle through the channels. The handling is very similar for
 the slide position sensor (sps) and the sensors that share the other ADS1219.
 
-```c++
+```cpp
 // @+'includes'
 #include "ADS1219.h"
 // @/
@@ -282,7 +282,7 @@ The MIMU sensors are particularly involved since they require calibration and
 sensor fusion. Most of the details of these algorithms are abstracted away in
 the MIMU libraries.
 
-```c++
+```cpp
 // @+'includes'
 #include "MIMU_MPU9250.h"
 #include "MIMUCalibrator.h"
@@ -310,7 +310,7 @@ Reading the sensors, correcting the errors in their output based on the
 calibration coefficients, and running the fusion filter are performed in a
 subroutine:
 
-```c++
+```cpp
 // @+'global definitions'
 void mimu_tick()
 {
@@ -328,7 +328,7 @@ After ticking the MIMU, the orientation is zeroed and converted to two useful
 representations (quaternion and matrix). Along with the calibrated sensor
 readings, these orientation representations are added to the OSC bundle.
 
-```c++
+```cpp
 // @+'read sensors'
 mimu_tick();
 auto zeroed = mimu_zero * mimu_filter.q;
@@ -354,7 +354,7 @@ osc_set_floats(accl_zerog.data(),      3, zerog);
 Based on the matrix, the normal vector can be extracted; this unit vector
 reflects the direction the slide is pointed in the global coordinate space. 
 
-```c++
+```cpp
 // @+'read sensors'
 static OSCMessage& normal = bundle.add("/normal");
 auto normal_vector = zeroed_matrix.col(1);
@@ -367,7 +367,7 @@ The normal vector always lies on the surface of a unit sphere. Sometimes it is
 useful to project the vector further, so that it lies on a unit cube. The
 following routine performs this mapping:
 
- ```c++
+ ```cpp
 // @+'read sensors'
 static OSCMessage& cubeal = bundle.add("/cubeal");
 {
@@ -393,7 +393,7 @@ initialized by setting the orientation close to the actual orientation and then
 running the filter for a moment with a very high proportional feedback
 coefficient. The following function performs this routine:
 
-```c++
+```cpp
 // @+'global definitions'
 void mimu_initialize()
 {
@@ -456,7 +456,7 @@ unaligned sensor readings can still have their non-alignment errors compensated
 for by the calibrator while being otherwise "raw" (i.e. not aligned using the
 current presumably incorrect alignment constants).
 
-```c++
+```cpp
 // @+'global definitions'
 void mimu_align()
 {
@@ -469,7 +469,7 @@ then the MIMU is read continuously for three seconds to average out any noise,
 and the vector measured by the accelerometer is taken as a measurement of the
 mubone's y-axis from the sensor's frame of reference.
 
-```c++
+```cpp
 // @+'global definitions'
     while(!any_button_pressed()) {/* wait */}
     delay(1000); // wait a second for the player to stabilize after
@@ -487,7 +487,7 @@ sensor's frame of reference. Along with the first reading, the two measurements
 provide enough information to determine the alignment of the sensor, which is
 stored with the other calibration contants.
 
-```c++
+```cpp
 // @+'global definitions'
     while(!any_button_pressed()) {/* wait */}
     delay(1000); // wait a second for the player to stabilize after
@@ -503,7 +503,7 @@ stored with the other calibration contants.
 After the alignment is set, the fusion filter is re-initialized based on the
 new sensor-local frame of reference.
 
-```c++
+```cpp
 // @+'global definitions'
     mimu_initialize();
 } 
@@ -520,7 +520,7 @@ analysis by calibration software. Pressing any of the buttons on the device
 (the same signal as is used in the alignment procedure) cancels calibration
 mode and breaks out of the loop, returning execution to the normal flow.
 
-```c++
+```cpp
 // @+'global definitions'
 void mimu_calibrate()
 {
@@ -552,7 +552,7 @@ direction that is considered "forward". The direction of up remains based on
 gravity. The remaining coordinate axis (left-right) is determined as a
 consequence.
 
-```c++
+```cpp
 // @='zero orientation'
 Vector ybasis = mimu_filter.rotation.col(1);
 float azimuth = std::atan2(ybasis.y(), ybasis.x());
@@ -567,7 +567,7 @@ position estimate to zero (usually with the slide fully retracted).
 
 Both of these tasks are performed by the following subroutine:
 
-```c++
+```cpp
 // @+'global definitions'
 void zero_sensors()
 {
@@ -582,7 +582,7 @@ This is very simple using the OSC library. Start packet, send packet, end
 packet.  The error messages bundle is only sent if there are error messages to
 send.
 
-```c++
+```cpp
 // @+'global definitions'
 template<class SLIP_T>
 void send_osc(SLIP_T& serial, OSCBundle& bundle, OSCBundle& error_messages)
@@ -626,7 +626,7 @@ We use an enumeration to keep track of the current state. This is appended to
 the includes block to ensure the definition is available when the templates are
 instantiated.
 
-```c++
+```cpp
 // @+'includes'
 enum OSCInState {WAITING, MESSAGE, BUNDLE};
 // @/
@@ -672,7 +672,7 @@ container will keep being filled on the next loop.
 Due to the implementation of SLIPSerial in the CNMAT OSC library, it's
 necessary to check for an `endofPacket` condition before reading.
 
-```c++
+```cpp
 // @+'global definitions'
 template<class SLIP_T, class OSCContainer>
 OSCInState receive_osc_inner(SLIP_T& serial, OSCContainer& osc, OSCInState initial_state)
@@ -697,7 +697,7 @@ simply iterates through the messages in the bundle and forwards them to the
 message dispatcher. The Arduino OSC library we use doesn't support nested
 bundles, so there's no need to check for them.
 
-```c++
+```cpp
 // @+'global definitions'
 void osc_dispatch(OSCBundle& bundle)
 {
@@ -718,7 +718,7 @@ the arguments of the OSC message to the given `float * value` buffer. A bool
 is returned to allow further action to be taken if the values are successfully
 copied.
 
-```c++
+```cpp
 // @+'global definitions'
 bool set_floats(float * value, OSCMessage& msg, int n = 1)
 {
@@ -746,7 +746,7 @@ Finally, the message dispatcher simply checks if the given OSC message matches
 any of the expected addresses. Comments are provided inline for quick reference
 of the intended effect of each of the OSC methods supported by the firmware.
 
-```c++
+```cpp
 // @+'global definitions'
 void osc_dispatch(OSCMessage& msg)
 {
@@ -795,7 +795,7 @@ This library causes the ESP to host a mubone network in station mode where the
 captive log in page is used to provide the password for one of the networks
 the ESP detects while scanning.
 
-```c++
+```cpp
 // @+'esp includes'
 // wifi manager includes
 #include "ESP8266WiFi.h"
@@ -814,7 +814,7 @@ Once the connection is established, the local IP address can be inspected. This
 is used to determine an appropriate output IP address, which by default will
 broadcast to all devices on the network.
 
-```c++
+```cpp
 // @+'esp definitions'
 IPAddress device_address;
 IPAddress output_address;

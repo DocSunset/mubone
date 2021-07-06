@@ -1,1 +1,1 @@
-mubone_firmware.lilit
+mubone_firmware.lilit.md

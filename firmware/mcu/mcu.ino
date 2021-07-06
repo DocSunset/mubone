@@ -203,9 +203,14 @@ bool set_floats(float * value, OSCMessage& msg, int n = 1)
 void load_persistent_state()
 {
     PersistentState persistent_state;
+    const uint8_t *ptr = (const uint8_t*) &persistent_state;
+    int count = sizeof(PersistentState);
+    EEPtr e = 0x00;
+
     EEPROM.begin();
-    persistent_state = EEPROM.get(0, persistent_state);
+    for (; count; --count, ++e) (*e).update(*ptr++);
     EEPROM.end();
+
     mimu_calibrator.setCalibration(persistent_state.mimucc);
     mimu_filter.fc = persistent_state.mimufc;
 }
@@ -213,10 +218,15 @@ void load_persistent_state()
 void store_persistent_state()
 {
     PersistentState persistent_state;
+    uint8_t *ptr = (uint8_t*) &persistent_state;
+    int count = sizeof(PersistentState)
+    EEPtr e = 0x00;
+
     persistent_state.mimucc = mimu_calibrator.getCalibration();
     persistent_state.mimufc = mimu_filter.fc;
-    EEPROM.begin();
-    EEPROM.put(0, persistent_state);
+
+    EEPROM.begin()
+    for (; count; --count, ++e) *ptr++ = *e;
     EEPROM.end();
 }
 

@@ -6,19 +6,19 @@
 using namespace mubone;
 using namespace mubone::synthesis;
 
-class GrainDisplayComponent : public Component
+class GrainDisplayComponent : public juce::Component
 {
-    Slider amp;
-    Slider freq;
-    Slider dur;
-    Slider deg;
+    juce::Slider amp;
+    juce::Slider freq;
+    juce::Slider dur;
+    juce::Slider deg;
     
 public:
     GrainDisplayComponent()
-    :   amp (Slider::SliderStyle::LinearBarVertical, Slider::TextEntryBoxPosition::TextBoxBelow)
-    ,   freq(Slider::SliderStyle::LinearBarVertical, Slider::TextEntryBoxPosition::TextBoxBelow)
-    ,   dur (Slider::SliderStyle::LinearBarVertical, Slider::TextEntryBoxPosition::TextBoxBelow)
-    ,   deg (Slider::SliderStyle::LinearBarVertical, Slider::TextEntryBoxPosition::TextBoxBelow)
+    :   amp (juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    ,   freq(juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    ,   dur (juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    ,   deg (juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
     {
         amp.setVelocityBasedMode(true);
         freq.setVelocityBasedMode(true);
@@ -42,11 +42,11 @@ public:
         addAndMakeVisible(deg);
     }
 
-    void paint (Graphics& g) override {}
+    void paint (juce::Graphics& g) override {}
 
     void resized() override
     {
-        Rectangle<int> area(getLocalBounds());
+        juce::Rectangle<int> area(getLocalBounds());
         const auto width = area.getWidth() / 4;
         const auto margin = 5;
         amp.setBounds(area.removeFromLeft(width).reduced(margin));
@@ -57,37 +57,37 @@ public:
 
     void update(const GrainDescription& gd)
     {
-        amp.setValue(get<amplitude>(gd), dontSendNotification);
-        freq.setValue(get<frequency>(gd), dontSendNotification);
-        dur.setValue(get<duration>(gd), dontSendNotification);
-        deg.setValue(get<search_radius>(gd), dontSendNotification);
+        amp.setValue(get<amplitude>(gd), juce::dontSendNotification);
+        freq.setValue(get<frequency>(gd), juce::dontSendNotification);
+        dur.setValue(get<duration>(gd), juce::dontSendNotification);
+        deg.setValue(get<search_radius>(gd), juce::dontSendNotification);
     }
 };
 
 using mubone::synthesis::State;
-class StateDisplayComponent : public Component
+class StateDisplayComponent : public juce::Component
 {
-    TextButton sound_rec_indicator;
-    TextButton gestr_rec_indicator;
-    TextButton granulate_indicator;
+    juce::TextButton sound_rec_indicator;
+    juce::TextButton gestr_rec_indicator;
+    juce::TextButton granulate_indicator;
     
 public:
     StateDisplayComponent()
     {
         // add subcomponents for displaying state parameters
-        sound_rec_indicator.setColour(TextButton::buttonOnColourId, Colours::red);
-        gestr_rec_indicator.setColour(TextButton::buttonOnColourId, Colours::mediumpurple);
-        granulate_indicator.setColour(TextButton::buttonOnColourId, Colours::green);
+        sound_rec_indicator.setColour(juce::TextButton::buttonOnColourId, juce::Colours::red);
+        gestr_rec_indicator.setColour(juce::TextButton::buttonOnColourId, juce::Colours::mediumpurple);
+        granulate_indicator.setColour(juce::TextButton::buttonOnColourId, juce::Colours::green);
         addAndMakeVisible(sound_rec_indicator);
         addAndMakeVisible(gestr_rec_indicator);
         addAndMakeVisible(granulate_indicator);
     }
 
-    void paint (Graphics& g) override {}
+    void paint (juce::Graphics& g) override {}
 
     void resized() override
     {
-        Rectangle<int> area(getLocalBounds());
+        juce::Rectangle<int> area(getLocalBounds());
         const auto width = area.getWidth() / 3;
         const auto margin = 5;
 
@@ -99,9 +99,9 @@ public:
     void update(const State& s)
     {
         // set slider values
-        sound_rec_indicator.setToggleState(get<sound_recording>(s), dontSendNotification);
-        gestr_rec_indicator.setToggleState(get<gesture_recording>(s), dontSendNotification);
-        granulate_indicator.setToggleState(get<granulating>(s), dontSendNotification);
+        sound_rec_indicator.setToggleState(get<sound_recording>(s), juce::dontSendNotification);
+        gestr_rec_indicator.setToggleState(get<gesture_recording>(s), juce::dontSendNotification);
+        granulate_indicator.setToggleState(get<granulating>(s), juce::dontSendNotification);
     }
 };
 

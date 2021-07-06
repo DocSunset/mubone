@@ -58,7 +58,7 @@ public:
 
 private:
     int sizeinsamps;
-    AudioBuffer<float> buffer;
+    juce::AudioBuffer<float> buffer;
 };
 
 struct ControlSoundReference
@@ -192,7 +192,7 @@ private:
     float cached_radius = 0;
     static int random_index(int exclusive_max)
     {
-        static Random r;
+        static juce::Random r;
         return r.nextInt(exclusive_max);
     }
 };

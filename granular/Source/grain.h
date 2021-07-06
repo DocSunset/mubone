@@ -15,6 +15,8 @@
 #include "soundobject.h"
 #include "window.h"
 
+#include "../JuceLibraryCode/JuceHeader.h"
+
 namespace mubone
 {
 
@@ -44,7 +46,7 @@ public:
     bool busy() const noexcept {return written < p.duration;}
     bool idle() const noexcept {return !busy();}
 
-    void getNextAudioBlock(AudioBuffer<float>& buffer, int startsamp, int numsamples, Sound& workingbuffer) 
+    void getNextAudioBlock(juce::AudioBuffer<float>& buffer, int startsamp, int numsamples, Sound& workingbuffer) 
     {
         if (idle()) return;
 

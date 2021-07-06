@@ -13,6 +13,7 @@
 #include "linalgtypes.h"
 #include "soundobject.h"
 
+#include "../JuceLibraryCode/JuceHeader.h"
 
 
 namespace mubone
@@ -156,7 +157,7 @@ private:
     Sound::List sounds;
     std::vector<ControlSoundReference> references;
     std::vector<int> reference_indices;
-    Random r;
+    juce::Random r;
     int candidates = 0;
     Vector cached_normal = Vector::Zero();
     float cached_radius = 0;

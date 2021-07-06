@@ -47,7 +47,7 @@ public:
 
     void getNextAudioBlock(
             const std::size_t& time,
-            const AudioSourceChannelInfo& iobuffer)
+            const juce::AudioSourceChannelInfo& iobuffer)
     {
         for (auto& cloud : clouds)
         {

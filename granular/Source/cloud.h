@@ -19,8 +19,8 @@
 #include "audiosphere.h"
 #include "grain.h"
 #include "window.h"
-#include "../JuceLibraryCode/JuceHeader.h"
 
+#include "../JuceLibraryCode/JuceHeader.h"
 
 namespace mubone::synthesis
 {
@@ -48,7 +48,7 @@ public:
     { 
     }
 
-    void getNextAudioBlock(const std::size_t& time, const AudioSourceChannelInfo& iobuffer, Sound& workingbuffer)
+    void getNextAudioBlock(const std::size_t& time, const juce::AudioSourceChannelInfo& iobuffer, Sound& workingbuffer)
     {
         if (planted()) launchNewGrains(time, iobuffer.numSamples);
         for (auto& grain : grains) 

@@ -91,7 +91,7 @@ private:
         for_each(g, [&bundle](const auto& elem)
         {
             using sig_t = typename std::remove_reference_t<decltype(elem)>::value_type;
-            OSCMessage message(elem.address());
+            juce::OSCMessage message(elem.address());
             if constexpr (std::is_floating_point_v<sig_t>) message.addFloat32(elem.value);
             else if constexpr (std::is_integral_v<sig_t>) message.addInt32(elem.value);
             else 

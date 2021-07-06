@@ -16,9 +16,9 @@ MainComponent::MainComponent()
                           false, // ability to select midi output device
                           false, // treat channels as stereo pairs
                           false),// hide advanced options
-    soundsindicator(Slider::LinearHorizontal, Slider::TextBoxLeft),
-    referencesindicator(Slider::LinearHorizontal, Slider::TextBoxLeft),
-    rmsthreshold(Slider::Rotary, Slider::TextBoxBelow),
+    soundsindicator(juce::Slider::LinearHorizontal, juce::Slider::TextBoxLeft),
+    referencesindicator(juce::Slider::LinearHorizontal, juce::Slider::TextBoxLeft),
+    rmsthreshold(juce::Slider::Rotary, juce::Slider::TextBoxBelow),
     gui_grain{},
     gui_state{},
     state{},
@@ -79,7 +79,7 @@ void MainComponent::releaseResources()
     cloudmanager.releaseResources();
 }
 
-void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& iobuffer)
+void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& iobuffer)
 {
     grain_receiver.audio_try_dequeue(cloudmanager.graindescription);
     state_receiver.audio_try_dequeue(state);
@@ -127,7 +127,7 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& iobuffer)
     timeinsamples += iobuffer.numSamples;
 }
 
-int MainComponent::mixInputs(const AudioSourceChannelInfo& iobuffer)
+int MainComponent::mixInputs(const juce::AudioSourceChannelInfo& iobuffer)
 {
     auto* device = deviceManager.getCurrentAudioDevice();
     if (device == nullptr) return -1; 
@@ -168,8 +168,8 @@ int MainComponent::getInputChannel()
 void MainComponent::initializeSetupComp()
 {
     addAndMakeVisible (audioSetupComp);
-    cpuUsageLabel.setText ("CPU Usage", dontSendNotification);
-    cpuUsageText.setJustificationType (Justification::right);
+    cpuUsageLabel.setText ("CPU Usage", juce::dontSendNotification);
+    cpuUsageText.setJustificationType (juce::Justification::right);
     addAndMakeVisible (&cpuUsageLabel);
     addAndMakeVisible (&cpuUsageText);
 }
@@ -177,29 +177,29 @@ void MainComponent::initializeSetupComp()
 void MainComponent::initializeSlider(const double& rangelo, 
                                      const double& rangehi, 
                                      const double& initial, 
-                                     Slider& slider,
-                                     Colour colour)
+                                     juce::Slider& slider,
+                                     juce::Colour colour)
 {
     slider.setRange(rangelo, rangehi);
     slider.setValue(initial);
-    slider.setColour(Slider::ColourIds::thumbColourId, colour);
+    slider.setColour(juce::Slider::ColourIds::thumbColourId, colour);
     addAndMakeVisible(slider);
 }
 
 void MainComponent::initializeSliders()
 {
-    threshindicator.setColour(TextButton::buttonOnColourId, Colours::goldenrod);
+    threshindicator.setColour(juce::TextButton::buttonOnColourId, juce::Colours::goldenrod);
     addAndMakeVisible(threshindicator);
     for (int i = 0; i < mubone::synthesis::CloudManager::numclouds; ++i)
     {
         auto& button = cloud_lights[i];
-        if (i&1) button.setColour(TextButton::buttonOnColourId, Colours::aqua);
-        else button.setColour(TextButton::buttonOnColourId, Colours::aquamarine);
+        if (i&1) button.setColour(juce::TextButton::buttonOnColourId, juce::Colours::aqua);
+        else button.setColour(juce::TextButton::buttonOnColourId, juce::Colours::aquamarine);
         addAndMakeVisible(button);
     }
     initializeSlider(0, 200, 0, soundsindicator);
     initializeSlider(0, 100000, 0, referencesindicator);
-    initializeSlider(-70, 0, -35, rmsthreshold, Colours::goldenrod);
+    initializeSlider(-70, 0, -35, rmsthreshold, juce::Colours::goldenrod);
     rmsthreshold.addListener(this);
 }
 
@@ -219,7 +219,7 @@ void MainComponent::resized()
     const auto margin = 5;
     const auto grid = 40;
 
-    Rectangle<int> area(getLocalBounds());
+    juce::Rectangle<int> area(getLocalBounds());
     
     const auto min_setupwidth = 300;
     const auto setupwidth = area.getWidth() / 4 > min_setupwidth ? area.getWidth() / 4 : 0;
@@ -250,7 +250,7 @@ float dbtoa(double db)
     return std::pow(10, db / 20);
 }
 
-void MainComponent::sliderValueChanged(Slider * s)
+void MainComponent::sliderValueChanged(juce::Slider * s)
 {
     if (s == &rmsthreshold) thresh.store(dbtoa(rmsthreshold.getValue()));
 }
@@ -258,40 +258,40 @@ void MainComponent::sliderValueChanged(Slider * s)
 void MainComponent::timerCallback()
 {
     auto cpu = deviceManager.getCpuUsage() * 100;
-    cpuUsageText.setText (String (cpu, 6) + " %", dontSendNotification);
+    cpuUsageText.setText (juce::String (cpu, 6) + " %", juce::dontSendNotification);
 
     for (int i = 0; i < mubone::synthesis::CloudManager::numclouds; ++i)
     {
-        cloud_lights[i].setToggleState(cloud_flags[i].load(), dontSendNotification);
+        cloud_lights[i].setToggleState(cloud_flags[i].load(), juce::dontSendNotification);
     }
-    soundsindicator.setValue(sounds.load(), dontSendNotification);
-    referencesindicator.setValue(references.load(), dontSendNotification);
-    threshindicator.setToggleState(thresholdpassed.load(), dontSendNotification);
+    soundsindicator.setValue(sounds.load(), juce::dontSendNotification);
+    referencesindicator.setValue(references.load(), juce::dontSendNotification);
+    threshindicator.setToggleState(thresholdpassed.load(), juce::dontSendNotification);
     while(grain_receiver.gui_try_dequeue(gui_grain)) {}
     grain_display.update(gui_grain);
     while(state_receiver.gui_try_dequeue(gui_state)) {}
     state_display.update(gui_state);
 }
 
-bool MainComponent::keyPressed(const KeyPress& key, Component* originatingComponent)
+bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent)
 {
     auto character = key.getTextDescription();
-    if (character == String("A"))
+    if (character == juce::String("A"))
     {
         sensor_receiver.align.store(true);
         return true;
     }
-    else if (character == String("I"))
+    else if (character == juce::String("I"))
     {
         sensor_receiver.init.store(true);
         return true;
     }
-    else if (character == String("Z"))
+    else if (character == juce::String("Z"))
     {
         gesture_model.set_zero.store(true);
         return true;
     }
-    else if (character == String("R"))
+    else if (character == juce::String("R"))
     {
         clear_flag.store(true);
         return true;
@@ -299,7 +299,7 @@ bool MainComponent::keyPressed(const KeyPress& key, Component* originatingCompon
     else return false;
 }
 
-void MainComponent::paint (Graphics& g)
+void MainComponent::paint (juce::Graphics& g)
 {
-    g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
+    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 }

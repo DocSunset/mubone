@@ -54,8 +54,8 @@ public:
         audio_queue{1}
     {
         osc.addListener(this);
-        if constexpr (std::is_same_v<SignalList, GrainDescription>) osc.connect(7008);
-        else if constexpr (std::is_same_v<SignalList, State>)       osc.connect(8008);
+        if constexpr (std::is_same_v<SignalList, GrainDescription>) osc.connect(8008);
+        else if constexpr (std::is_same_v<SignalList, State>)       osc.connect(7007);
     }
     
     void disconnect() {osc.disconnect();}

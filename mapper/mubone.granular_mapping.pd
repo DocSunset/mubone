@@ -1,4 +1,4 @@
-#N canvas 0 49 1680 1001 12;
+#N canvas 0 49 974 1001 12;
 #X obj 328 190 oscformat direction;
 #X obj 328 215 s granular_description;
 #X obj 726 607 s granular_description;
@@ -26,14 +26,14 @@
 #X obj 238 370 r granular_max_freq;
 #X obj 238 402 log 2;
 #X obj 32 111 hsl 128 15 0 1024 0 0 empty empty empty -2 -8 0 10 -262144
--1 -1 600 1;
+-1 -1 3900 1;
 #X obj 29 131 / 1024;
 #X obj 34 308 hsl 128 15 0 1024 0 0 empty empty empty -2 -8 0 10 -262144
--1 -1 2900 1;
+-1 -1 11200 1;
 #X obj 460 619 s granular_description;
 #X obj 615 442 log 2;
 #X obj 463 347 hsl 128 15 0 1024 0 0 empty empty empty -2 -8 0 10 -262144
--1 -1 8900 1;
+-1 -1 11100 1;
 #X obj 460 594 oscformat duration;
 #X obj 615 410 r granular_min_period;
 #X obj 433 410 r mubone_joystick_polar;
@@ -52,14 +52,14 @@
 #X obj 460 370 mubone.linmap 0 1024 -180 180;
 #X obj 328 157 r mubone_normal;
 #X obj 733 508 hsl 128 15 0 60000 0 0 empty empty empty -2 -8 0 10
--262144 -1 -1 12000 1;
+-262144 -1 -1 500 1;
 #X obj 730 528 / 1000;
 #X floatatom 790 551 5 0 0 0 - - -;
 #X obj 31 646 r mubone_grip_buttons;
 #X obj 31 671 unpack f f f;
 #X obj 222 799 mubone.switch_model;
 #X obj 27 798 mubone.switch_model;
-#N canvas 0 49 924 1001 triple_press 0;
+#N canvas 959 53 924 1001 triple_press 0;
 #X obj 24 29 inlet;
 #X obj 24 368 outlet;
 #X obj 26 63 sel 1;
@@ -105,31 +105,31 @@
 #X obj 586 832 t f f;
 #X msg 586 772 1;
 #X msg 627 772 -1;
-#X msg 672 810 0;
+#X msg 650 808 0;
 #X floatatom 635 863 5 0 0 0 - - -;
 #N canvas 0 49 924 1001 network 0;
 #X obj 18 137 netsend -u -b;
 #X obj 18 24 loadbang;
-#X msg 18 49 connect localhost 8008;
 #X obj 43 95 r granular_state;
 #X obj 208 135 netsend -u -b;
-#X obj 208 22 loadbang;
+#X obj 207 22 loadbang;
 #X obj 233 93 r granular_description;
-#X msg 208 47 connect localhost 7007;
-#X connect 1 0 2 0;
+#X msg 18 49 connect localhost 7007;
+#X msg 207 47 connect localhost 8008;
+#X connect 1 0 6 0;
 #X connect 2 0 0 0;
-#X connect 3 0 0 0;
-#X connect 5 0 7 0;
-#X connect 6 0 4 0;
-#X connect 7 0 4 0;
+#X connect 4 0 7 0;
+#X connect 5 0 3 0;
+#X connect 6 0 0 0;
+#X connect 7 0 3 0;
 #X restore 36 902 pd network;
-#X obj 60 774 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 1
+#X obj 60 774 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
 1;
 #X obj 249 774 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
 1;
 #X obj 381 800 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
 1;
-#X obj 177 801 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 1
+#X obj 177 801 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
 1;
 #X obj 222 826 oscformat -f i sound_recording;
 #X obj 27 826 oscformat -f i granulating;
@@ -197,7 +197,7 @@
 #X connect 57 1 56 1;
 #X connect 58 0 56 0;
 #X connect 59 0 56 0;
-#X connect 60 0 56 1;
+#X connect 60 0 57 0;
 #X connect 63 0 54 0;
 #X connect 64 0 53 0;
 #X connect 67 0 5 0;

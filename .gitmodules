@@ -4,3 +4,6 @@
 [submodule "granular/3rdparty/simplesound"]
 	path = granular/3rdparty/simplesound
 	url = git@github.com:DocSunset/simplesound.git
+[submodule "granular/3rdparty/Eigen"]
+	path = granular/3rdparty/Eigen
+	url = https://gitlab.com/libeigen/eigen.git

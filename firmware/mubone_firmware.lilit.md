@@ -54,6 +54,23 @@ void loop()
 
 # mcu.ino
 
+The main job of the MCU firmware is to read the sensors and forward the
+measurements to the main processor, via USB serial or eventually wireless
+messages sent by an ESP8266. Secondarily, the MCU also has to facilitate
+calibration of the sensors, including storing adjustment coefficients used
+to compensate for static errors in the measurements.
+
+Before describing the implementation of the measurements, we will consider the
+other peripherals used by the firmware (EEPROM and the serial and I2C busses),
+as well as cross-cutting concerns such as OSC formatting and resistive sensor
+calibration.
+
+We then address each sensor in turn: the buttons, the joystick, the slide
+position sensor, trigger, throttle, and yoke, and finally the MIMU orientation
+sensor.
+
+Last, we outline the OSC methods that can be received by the device.
+
 ## EEPROM
 
 Some data in memory needs to be stored persistently across power cycles,
@@ -93,7 +110,7 @@ needed. The full load and store methods therefore have the following outline:
 void load_persistent_state()
 {
     PersistentState persistent_state;
-    const uint8_t *ptr = (const uint8_t*) &persistent_state;
+    const uint8_t * ptr = (const uint8_t*) &persistent_state;
     int count = sizeof(PersistentState);
     EEPtr e = 0x00;
 
@@ -107,13 +124,13 @@ void load_persistent_state()
 void store_persistent_state()
 {
     PersistentState persistent_state;
-    uint8_t *ptr = (uint8_t*) &persistent_state;
-    int count = sizeof(PersistentState)
+    uint8_t * ptr = (uint8_t*) &persistent_state;
+    int count = sizeof(PersistentState);
     EEPtr e = 0x00;
 
     @{collect persistent state}
 
-    EEPROM.begin()
+    EEPROM.begin();
     for (; count; --count, ++e) *ptr++ = *e;
     EEPROM.end();
 }
@@ -142,6 +159,15 @@ necessitating that they be reset.
 
 More detail may be found
 [here](https://embeddedgurus.com/stack-overflow/2017/07/eeprom-wear-leveling/).
+
+Finally, note that EEPROM is automatically loaded during setup.
+
+```cpp
+// @+'setup'
+load_persistent_state();
+
+// @/
+```
 
 ## OSC
 
@@ -218,6 +244,7 @@ SLIPEncodedUSBSerial usbserial{Serial};
 usbserial.begin(2000000);
 //hwserial.begin(2000000);
 // @/
+```
 
 ## I2C
 
@@ -228,6 +255,179 @@ things up and running.
 ```cpp
 // @+'comms setup'
 Wire.begin();
+// @/
+```
+
+## resistive sensor calibration
+
+All of the resistive sensors (joystick, joint, slide position sensor, and
+trigger) have known dynamic ranges; for example, the throw of the trigger is
+known to be a certain angle, as is the deflection of the joints or the
+joystick. However, the actual angle in degrees is rarely of any interest to the
+user. Instead, the *relative* position of the sensor with respect to its
+minimum and maximum positions is usually what matters. For this reason, these
+sensors can be easily calibrated and adjusted simply recording the minimum,
+maximum, and resting positions and adjusting the output so that its range is a
+known and convenient range (in this case, either 0 to 1 or -1 to 1 depending on
+the sensor). Arguably no actual calibration takes place, since the measurements
+are at no point compared to a known standard. However, it is reasonable and
+practical to assume that the maximum and minimum values recorded during
+"calibration" correspond to the values output when the sensor is in its maximum
+and minimum positions.
+
+A simple `Range` structure is provided with methods used to calibrate the
+boundaries and midpoint. 
+
+```cpp
+// @#'mcu/range_adjustment.h'
+#ifndef RANGE_ADJUSTMENT_H
+#define RANGE_ADJUSTMENT_H
+
+#include <limits>
+#include <cmath>
+
+struct Range
+{
+    float min;
+    float mid;
+    float max;
+
+    void reset()
+    {
+        min = std::numeric_limits<float>::max();
+        static_assert(std::numeric_limits<float>::has_quiet_NaN, "error: execting NaNs");
+        mid = std::numeric_limits<float>::quiet_NaN();
+        max = std::numeric_limits<float>::min();
+    }
+
+    void set_midpoint(float x)
+    {
+        if (std::isnan(mid)) mid = x;
+        // calculate an exponential rolling average over approx 5000 samples
+        mid -= mid / 1000.0f;
+        mid += x / 1000.0f;
+    }
+
+    void set_midpoint_from_bounds()
+    {
+        mid = 0.5 * (max - min);
+    }
+
+    void calibrate(float x)
+    {
+        if      (x < min) min = x;
+        else if (x > max) max = x;
+    }
+};
+
+// @/
+```
+
+Given two `Range`s, a measurement `x` can be mapped so that it goes from lying
+within the input range (the domain) to lying within the output range (the
+codomain) in two ways. The `linear_map` function ignores the measured midpoint
+and simply scales and offsets the measurement to fit the specified codomain.
+The `centered_map` function independently scales the measurement depending on
+whether it is below or above the measured midpoint so that measurements at the
+measured midpoint are mapped to the codomain midpoint. The implementation of
+the latter makes use of the former
+
+```cpp
+// @+'mcu/range_adjustment.h'
+float linear_map(float x, Range domain, Range codomain)
+{
+    float normalized = (x - domain.min) / (domain.max - domain.min);
+    return normalized * (codomain.max - codomain.min) + codomain.min;
+}
+
+float centered_map(float x, Range domain, Range codomain)
+{
+    if (x < domain.mid)
+        return linear_map(x, {domain.min, domain.mid}, {codomain.min, codomain.mid});
+    else
+        return linear_map(x, {domain.mid, domain.max}, {codomain.mid, codomain.max});
+}
+
+@{ranges}
+
+#endif
+// @/
+
+When saving and restoring ranges in EEPROM, as well as when starting to
+calibrate the ranges, it's useful to be able to iterate over all the ranges in
+the program. However, it's most natural to describe the ranges below as they
+are needed. The following chunk is appended to throughout this literate source,
+but appears as one block in the tangled source code.
+
+```cpp
+// @='ranges'
+Range ranges[] =
+    { {-1, 0, 1}
+    , {0, 0.5, 1}
+    , @{sensor ranges}
+    };
+
+enum RANGE : unsigned char
+    { BIPOLAR_NORMALIZED
+    , UNIPOLAR_NORMALIZED
+    , @{range names}
+    , NUM_RANGES
+    };
+// @/
+```
+
+For persistent state, the `NUM_RANGES` enum value is essential, allowing the
+array of ranges in the persistent state structure to be set, and allowing the
+arrays to be iterated over easily.
+
+```cpp
+// @+'persistent state'
+Range ranges[NUM_RANGES];
+// @/
+
+// @+'collect persistent state'
+for (unsigned char i = 0; i < NUM_RANGES; ++i)
+    persistent_state.ranges[i] = ranges[i];
+// @/
+
+// @+'distribute persistent state'
+for (unsigned char i = 0; i < NUM_RANGES; ++i)
+    ranges[i] = persistent_state.ranges[i];
+// @/
+```
+
+Calibrating the ranges requires looping over all of the sensors, so the bulk of
+this definition is completed alongside the description of each sensor. Here the
+ranges are simply reset by iterating over all of them and calling their `reset`
+method. The two normalized ranges then have to be manually set, since they
+don't depend on any sensor readings. Rather, these two ranges are used as
+output ranges passed as the second `Range` argument to the mapping functions
+described above.
+
+```cpp
+// @+'includes'
+#include "range_adjustment.h"
+// @/
+```
+
+```cpp
+// @='calibrate ranges subroutine'
+void calibrate_ranges()
+{
+    for (unsigned char i = 0; i < NUM_RANGES; ++i) ranges[i].reset();
+    ranges[BIPOLAR_NORMALIZED] = {-1, 0, 1};
+    ranges[UNIPOLAR_NORMALIZED] = {0, 0.5, 1};
+
+    while (!any_button_pressed())
+    {
+        @{calibrate ranges}
+    }
+
+    while (!any_button_pressed())
+    {
+        @{calibrate midpoints}
+    }
+}
 // @/
 ```
 
@@ -281,17 +481,60 @@ pinMode(joystick_pin_y, INPUT);
 
 // @/
 
+// @+'sensor ranges'
+{0, 512, 1024}
+{0, 512, 1024}
+// @/
+
+// @+'range names'
+JOYSTICK_X
+JOYSTICK_Y
+// @/
+
+// @+'global definitions'
+void read_joystick(float& x, float& y)
+{
+    x = analogRead(joystick_pin_x);
+    y = 1024 - analogRead(joystick_pin_y);
+}
+
+// @/
+
 // @+'read sensors'
 static OSCMessage& joystick = bundle.add("/joystick");
-joystick.set(0, analogRead(joystick_pin_x));
-joystick.set(1, analogRead(joystick_pin_y));
+{
+    float x, y;
+    read_joystick(x, y);
+    x = centered_map(x, ranges[JOYSTICK_X], ranges[BIPOLAR_NORMALIZED]);
+    y = centered_map(y, ranges[JOYSTICK_Y], ranges[BIPOLAR_NORMALIZED]);
+    joystick.set(0, x);
+    joystick.set(1, y);
+}
 
+// @/
+
+// @+'calibrate ranges'
+{
+    float x, y;
+    read_joystick(x, y);
+    ranges[JOYSTICK_X].calibrate(x);
+    ranges[JOYSTICK_Y].calibrate(y);
+}
+// @/
+
+// @+'calibrate midpoints'
+{
+    float x, y;
+    read_joystick(x, y);
+    ranges[JOYSTICK_X].set_midpoint(x);
+    ranges[JOYSTICK_Y].set_midpoint(y);
+}
 // @/
 ```
 
 ## ADS1219 sensors
 
-The slide position sensor, rotator, u-joint, and trigger use ADS1219 ADCs. Most
+The slide position sensor, throttle, yoke, and trigger use ADS1219 ADCs. Most
 of the tricky parts of working with the ADC are handled by a separate library.
 The firmware has to keep track of which channel of the ADC is being read, and
 has to manually cycle through the channels. The handling is very similar for
@@ -332,6 +575,38 @@ misc_adc.start_conversion();
 
 // @/
 
+// @+'sensor ranges'
+{0, -0.5, -1}
+{0, 0.5, 1}
+{0, 0.5, 1}
+{0, 0.5, 1}
+// @/
+
+// @+'range names'
+MISC_ADC0 // trigger
+MISC_ADC1 // throttle
+MISC_ADC2 // joint/x
+MISC_ADC3 // joint/y
+// @/
+
+// @+'global definitions'
+void read_misc_adc(float& reading, int& idx, bool& data)
+{
+    static int pot = 0;
+    if (misc_adc.data_ready())
+    {
+        data = true;
+        misc_adc.read_normalized(reading);
+        idx = pot;
+
+        pot = (pot + 1) & 0b11; // switch to next potentiometer
+        misc_adc.modify_config(misc_channels[pot]);
+    }
+    else data = false;
+}
+
+// @/
+
 // @+'read sensors'
 static OSCMessage& sps = bundle.add("/slide_position");
 {
@@ -339,38 +614,64 @@ static OSCMessage& sps = bundle.add("/slide_position");
     if (sps_adc.data_ready())
     {
         float reading = 0;
-        bool ret = sps_adc.read_normalized(reading);
+        sps_adc.read_normalized(reading);
         sps.set(pot, reading);
         pot ^= 1; // switch to next potentiometer
-        ret = sps_adc.modify_config(sps_channels[pot]);
+        sps_adc.modify_config(sps_channels[pot]);
     }
 }
 
 static OSCMessage * misc[4] = { &bundle.add("/trigger")
+                              , &bundle.add("/throttle")
                               , &bundle.add("/joint/x")
-                              , &bundle.add("/joint/z")
                               , &bundle.add("/joint/y")
                               };
 {
-    static int pot = 0;
-    if (misc_adc.data_ready())
+    int pot = 0;
+    float reading = 0;
+    bool data;
+    read_misc_adc(reading, pot, data);
+    if (data)
     {
-        float reading = 0;
-        bool ret = misc_adc.read_normalized(reading);
-        misc[pot]->set(0, reading);
-        pot = (pot + 1) & 0b11; // switch to next potentiometer
-        ret = misc_adc.modify_config(misc_channels[pot]);
+        if (pot < 2)
+            misc[pot]->set(0, centered_map(reading, ranges[MISC_ADC0 + pot], ranges[BIPOLAR_NORMALIZED]));
+        else
+            misc[pot]->set(0, linear_map(reading, ranges[MISC_ADC0 + pot], ranges[BIPOLAR_NORMALIZED]));
     }
 }
 
+// @/
+
+// @+'calibrate ranges'
+{
+    int pot = 0;
+    float reading = 0;
+    bool data = false;
+    read_misc_adc(reading, pot, data);
+    if (data) ranges[MISC_ADC0 + pot].calibrate(reading);
+}
+// @/
+
+// @+'calibrate midpoints'
+{
+    int pot = 0;
+    float reading = 0;
+    bool data = false;
+    read_misc_adc(reading, pot, data);
+    if (data)
+    {
+        if (pot < 2) ranges[MISC_ADC0 + pot].set_midpoint(reading);
+        else         ranges[MISC_ADC0 + pot].set_midpoint_from_bounds();
+    }
+}
 // @/
 ```
 
 ## MIMU
 
-The MIMU sensors are particularly involved since they require calibration and
-sensor fusion. Most of the details of these algorithms are abstracted away in
-the MIMU libraries.
+The MIMU sensors are particularly involved since they require both calibration
+and sensor fusion. Most of the details of these algorithms are abstracted away
+in the MIMU libraries.
 
 ```cpp
 // @+'includes'
@@ -876,13 +1177,16 @@ Finally, the message dispatcher simply checks if the given OSC message matches
 any of the expected addresses. Comments are provided inline for quick reference
 of the intended effect of each of the OSC methods supported by the firmware.
 
-The persistent storage subroutines are inserted at this point in the file,
-which ensures that they will be able to view any global variables declared
-earlier, such as `mimu_calibrator` and the like.
+The persistent storage subroutines and range calibration subroutine are
+inserted at this point in the file, which ensures that they will be able to
+view any global variables declared earlier, such as `mimu_calibrator` and the
+like, as well as global functions for reading the sensors.
 
 ```cpp
 // @+'global definitions'
 @{persistent state subroutines}
+
+@{calibrate ranges subroutine}
 
 void osc_dispatch(OSCMessage& msg)
 {
@@ -895,8 +1199,11 @@ void osc_dispatch(OSCMessage& msg)
     // set the alignment of the mimu wrt to the brass
     else if (msg.fullMatch("/align")) mimu_align();
 
-    // switch to calibration mode; raw mimu readouts are sent to the network
-    else if (msg.fullMatch("/calibrate")) mimu_calibrate();
+    // switch to mimu calibration mode; raw mimu readouts are sent to the network
+    else if (msg.fullMatch("/calibrate/mimu")) mimu_calibrate();
+
+    // switch to range calibration mode; monitor ranges then set midpoints
+    else if (msg.fullMatch("/calibrate/ranges")) calibrate_ranges();
 
     // set the calibration matrices and vectors
     else if (msg.fullMatch("/calibration/accl/matrix")) set_floats(mimu_calibrator.cc.acclcalibration.data(), msg, 9);

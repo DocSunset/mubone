@@ -2,6 +2,7 @@
 #include "OSCBundle.h"
 #include "SLIPEncodedUSBSerial.h"
 //#include "SLIPEncodedSerial.h"
+#include "range_adjustment.h"
 #include "ADS1219.h"
 #include "MIMU_MPU9250.h"
 #include "MIMUCalibrator.h"
@@ -10,6 +11,7 @@ enum OSCInState {WAITING, MESSAGE, BUNDLE};
 
 struct PersistentState
 {
+    Range ranges[NUM_RANGES];
     MIMUCalibrationConstants mimucc;
     MIMUFilterCoefficients mimufc;
 };
@@ -29,6 +31,12 @@ constexpr int button_pins[num_buttons] = {5, 6, 7, 8, 2, 3, 4, 11};
 constexpr int joystick_pin_x = A1;
 constexpr int joystick_pin_y = A0;
 
+void read_joystick(float& x, float& y)
+{
+    x = analogRead(joystick_pin_x);
+    y = 1024 - analogRead(joystick_pin_y);
+}
+
 using namespace ADS1219;
 
 constexpr Address sps_address(ADDR0::DGND, ADDR1::DGND);
@@ -38,6 +46,21 @@ constexpr MUX sps_channels[] = {MUX::AIN0_AIN1, MUX::AIN2_AIN3};
 constexpr Address misc_adc_address(ADDR0::DVDD, ADDR1::DGND);
 ADS1219_ADC misc_adc(misc_adc_address, Wire);
 constexpr MUX misc_channels[] = {MUX::AIN0, MUX::AIN1, MUX::AIN2, MUX::AIN3};
+
+void read_misc_adc(float& reading, int& idx, bool& data)
+{
+    static int pot = 0;
+    if (misc_adc.data_ready())
+    {
+        data = true;
+        misc_adc.read_normalized(reading);
+        idx = pot;
+
+        pot = (pot + 1) & 0b11; // switch to next potentiometer
+        misc_adc.modify_config(misc_channels[pot]);
+    }
+    else data = false;
+}
 
 MIMU_MPU9250 mimu;
 MIMUCalibrator mimu_calibrator;
@@ -203,7 +226,7 @@ bool set_floats(float * value, OSCMessage& msg, int n = 1)
 void load_persistent_state()
 {
     PersistentState persistent_state;
-    const uint8_t *ptr = (const uint8_t*) &persistent_state;
+    const uint8_t * ptr = (const uint8_t*) &persistent_state;
     int count = sizeof(PersistentState);
     EEPtr e = 0x00;
 
@@ -211,6 +234,8 @@ void load_persistent_state()
     for (; count; --count, ++e) (*e).update(*ptr++);
     EEPROM.end();
 
+    for (unsigned char i = 0; i < NUM_RANGES; ++i)
+        ranges[i] = persistent_state.ranges[i];
     mimu_calibrator.setCalibration(persistent_state.mimucc);
     mimu_filter.fc = persistent_state.mimufc;
 }
@@ -218,16 +243,63 @@ void load_persistent_state()
 void store_persistent_state()
 {
     PersistentState persistent_state;
-    uint8_t *ptr = (uint8_t*) &persistent_state;
+    uint8_t * ptr = (uint8_t*) &persistent_state;
     int count = sizeof(PersistentState);
     EEPtr e = 0x00;
 
+    for (unsigned char i = 0; i < NUM_RANGES; ++i)
+        persistent_state.ranges[i] = ranges[i];
     persistent_state.mimucc = mimu_calibrator.getCalibration();
     persistent_state.mimufc = mimu_filter.fc;
 
     EEPROM.begin();
     for (; count; --count, ++e) *ptr++ = *e;
     EEPROM.end();
+}
+
+void calibrate_ranges()
+{
+    for (unsigned char i = 0; i < NUM_RANGES; ++i) ranges[i].reset();
+    ranges[BIPOLAR_NORMALIZED] = {-1, 0, 1};
+    ranges[UNIPOLAR_NORMALIZED] = {0, 0.5, 1};
+
+    while (!any_button_pressed())
+    {
+        {
+            float x, y;
+            read_joystick(x, y);
+            ranges[JOYSTICK_X].calibrate(x);
+            ranges[JOYSTICK_Y].calibrate(y);
+        }
+        {
+            int pot = 0;
+            float reading = 0;
+            bool data = false;
+            read_misc_adc(reading, pot, data);
+            if (data) ranges[MISC_ADC0 + pot].calibrate(reading);
+        }
+    }
+
+    while (!any_button_pressed())
+    {
+        {
+            float x, y;
+            read_joystick(x, y);
+            ranges[JOYSTICK_X].set_midpoint(x);
+            ranges[JOYSTICK_Y].set_midpoint(y);
+        }
+        {
+            int pot = 0;
+            float reading = 0;
+            bool data = false;
+            read_misc_adc(reading, pot, data);
+            if (data)
+            {
+                if (pot < 2) ranges[MISC_ADC0 + pot].set_midpoint(reading);
+                else         ranges[MISC_ADC0 + pot].set_midpoint_from_bounds();
+            }
+        }
+    }
 }
 
 void osc_dispatch(OSCMessage& msg)
@@ -241,8 +313,11 @@ void osc_dispatch(OSCMessage& msg)
     // set the alignment of the mimu wrt to the brass
     else if (msg.fullMatch("/align")) mimu_align();
 
-    // switch to calibration mode; raw mimu readouts are sent to the network
-    else if (msg.fullMatch("/calibrate")) mimu_calibrate();
+    // switch to mimu calibration mode; raw mimu readouts are sent to the network
+    else if (msg.fullMatch("/calibrate/mimu")) mimu_calibrate();
+
+    // switch to range calibration mode; monitor ranges then set midpoints
+    else if (msg.fullMatch("/calibrate/ranges")) calibrate_ranges();
 
     // set the calibration matrices and vectors
     else if (msg.fullMatch("/calibration/accl/matrix")) set_floats(mimu_calibrator.cc.acclcalibration.data(), msg, 9);
@@ -313,8 +388,14 @@ void loop()
     }
 
     static OSCMessage& joystick = bundle.add("/joystick");
-    joystick.set(0, analogRead(joystick_pin_x));
-    joystick.set(1, analogRead(joystick_pin_y));
+    {
+        float x, y;
+        read_joystick(x, y);
+        x = centered_map(x, ranges[JOYSTICK_X], ranges[BIPOLAR_NORMALIZED]);
+        y = centered_map(y, ranges[JOYSTICK_Y], ranges[BIPOLAR_NORMALIZED]);
+        joystick.set(0, x);
+        joystick.set(1, y);
+    }
 
     static OSCMessage& sps = bundle.add("/slide_position");
     {
@@ -322,27 +403,29 @@ void loop()
         if (sps_adc.data_ready())
         {
             float reading = 0;
-            bool ret = sps_adc.read_normalized(reading);
+            sps_adc.read_normalized(reading);
             sps.set(pot, reading);
             pot ^= 1; // switch to next potentiometer
-            ret = sps_adc.modify_config(sps_channels[pot]);
+            sps_adc.modify_config(sps_channels[pot]);
         }
     }
 
     static OSCMessage * misc[4] = { &bundle.add("/trigger")
+                                  , &bundle.add("/throttle")
                                   , &bundle.add("/joint/x")
-                                  , &bundle.add("/joint/z")
                                   , &bundle.add("/joint/y")
                                   };
     {
-        static int pot = 0;
-        if (misc_adc.data_ready())
+        int pot = 0;
+        float reading = 0;
+        bool data;
+        read_misc_adc(reading, pot, data);
+        if (data)
         {
-            float reading = 0;
-            bool ret = misc_adc.read_normalized(reading);
-            misc[pot]->set(0, reading);
-            pot = (pot + 1) & 0b11; // switch to next potentiometer
-            ret = misc_adc.modify_config(misc_channels[pot]);
+            if (pot < 2)
+                misc[pot]->set(0, centered_map(reading, ranges[MISC_ADC0 + pot], ranges[BIPOLAR_NORMALIZED]));
+            else
+                misc[pot]->set(0, linear_map(reading, ranges[MISC_ADC0 + pot], ranges[BIPOLAR_NORMALIZED]));
         }
     }
 

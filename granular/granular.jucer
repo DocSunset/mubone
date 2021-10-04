@@ -2,7 +2,7 @@
 
 <JUCERPROJECT id="NcJlO3" name="granular" projectType="guiapp" reportAppUsage="0"
               version="0.0.5" cppLanguageStandard="17" displaySplashScreen="1"
-              jucerFormatVersion="1">
+              jucerFormatVersion="1" jucerVersion="5.4.7">
   <MAINGROUP id="vM1d1w" name="granular">
     <GROUP id="{6801AAEA-3F0A-B082-4FE8-40CD340BE24E}" name="Test">
       <FILE id="DCUJzA" name="cloud.cpp" compile="1" resource="0" file="Test/cloud.cpp"/>

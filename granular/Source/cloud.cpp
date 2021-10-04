@@ -1,5 +1,7 @@
 #include "cloud.h"
 
+#include "../3rdparty/simplesound/simple/random.h"
+
 namespace mubone::synthesis
 {
 
@@ -36,9 +38,10 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
     {
         GrainDescription g = lines_at(lines, time + i);
         
+        float _activation_probability = (float)get<activation_probability>(g);
         float _frequency = (float)get<frequency>(g);
         trigger.frequency.set_hz(_frequency);
-        if (trigger.tick())
+        if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
         {
             int index = getIdleGrain();
             if (index < 0 || index > numgrains) 
@@ -87,12 +90,13 @@ void GrainCloud::launchNewGrains(int numSamples)
     int _channel         = getChannel();
     float _playback_rate = (float)get<playback_rate>(gd);
     float _duration      = (float)get<duration>(gd) * samplerate;
+    float _activation_probability = (float)get<activation_probability>(gd);
 
     trigger.frequency.set_hz(_frequency);
     bool sorted = false;
     for (int i = 0; i < numSamples; ++i)
     {
-        if (trigger.tick())
+        if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
         {
             int index = getIdleGrain();
             if (index < 0 || index > numgrains) 

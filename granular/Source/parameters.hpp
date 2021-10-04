@@ -106,6 +106,7 @@ namespace synthesis
     ADD_SIGNAL(search_radius, "/search_angle", float, 1, 180);
     ADD_SIGNAL(frequency, "/frequency", float, 0, 10000);
     ADD_SIGNAL(duration, "/duration", float, 0, 60);
+    ADD_SIGNAL(skew, "/skew", float, 0, 1);
     ADD_SIGNAL(playback_rate, "/playback_rate", float, -4, 4);
     ADD_SIGNAL(amplitude, "/amplitude", float, 0, 1);
     ADD_SIGNAL(activation_probability, "/activation_probability", float, 0, 1);
@@ -117,7 +118,7 @@ namespace synthesis
     ADD_SIGNAL(reset_trigger, "/reset", bool, 0, 1);
 
     using GrainDescription = List<direction, search_radius, frequency, duration,
-          playback_rate, amplitude, activation_probability>;
+          skew, playback_rate, amplitude, activation_probability>;
 
     using State = List<sound_recording, gesture_recording, clouds_planted,
           granulating, reset_trigger>;
@@ -128,6 +129,7 @@ namespace synthesis
         get<search_radius>(g)        = 0.5;
         get<frequency>(g)            = 20;
         get<duration>(g)             = 0.05;
+        get<skew>(g)                 = 0.5;
         get<playback_rate>(g)        = 1;
         get<amplitude>(g)            = 0.03125;
         get<activation_probability>(g) = 1;

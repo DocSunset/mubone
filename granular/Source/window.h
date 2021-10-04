@@ -33,12 +33,19 @@ public:
         }
     }
 
+    // phase distorted skewed hanning window
+    // https://www.desmos.com/calculator/xw2pgvvq83
     float hann(int index, int duration) const
     {
+        if (index == duration - 1) return 0; // prevent clicks with skew == 1
         float t = index / static_cast<float>(duration - 1);
-        float hann = 0.5 * (1 - std::cos(Simple::twoPi * t));
+        float phase = t < skew ? 0.5 * t / skew
+                    : (0.5 / (1 - skew)) * (t - skew) + 0.5;
+        float hann = 0.5 * (1 - std::cos(Simple::twoPi * phase));
         return hann;
     }
+
+    float skew = 0.5;
 };
 
 } // namespace mubone

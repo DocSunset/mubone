@@ -37,6 +37,7 @@ void synthesis_parameter_mapping(GrainDescription& g, GrainDescription& prev)
         get<search_radius>(g) = search_radius_mapping(get<search_radius>(g).value);
         get<search_radius>(prev) = get<search_radius>(g);
     }
+    //get<skew>(g) = Simple::clip<float>(get<skew>(prev), 0.99999f, 0.0f);
 }
 
 void synthesis_parameter_mapping(State& s, State& prev)

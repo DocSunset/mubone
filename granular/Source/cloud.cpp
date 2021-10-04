@@ -63,6 +63,7 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
             float _playback_rate = (float)get<playback_rate>(g);
             float _duration      = (float)get<duration>(g) * samplerate;
             float _amplitude     = (float)get<amplitude>(g);
+            float _skew          = (float)get<skew>(g);
             
             SoundGrain::Parameters p;
             p.ref = sound;
@@ -71,7 +72,7 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
             p.delay = i;
             p.duration = _duration;
             p.amplitude = _amplitude;
-            p.window = Window();
+            p.window = Window{_skew};
 
             jassert(index >= 0);
             grains[index] = SoundGrain(p);
@@ -91,6 +92,7 @@ void GrainCloud::launchNewGrains(int numSamples)
     float _playback_rate = (float)get<playback_rate>(gd);
     float _duration      = (float)get<duration>(gd) * samplerate;
     float _activation_probability = (float)get<activation_probability>(gd);
+    float _skew = (float)get<skew>(gd);
 
     trigger.frequency.set_hz(_frequency);
     bool sorted = false;
@@ -122,7 +124,7 @@ void GrainCloud::launchNewGrains(int numSamples)
             p.delay = i;
             p.duration = _duration;
             p.amplitude = _amplitude;
-            p.window = Window();
+            p.window = Window{_skew};
 
             jassert(index >= 0);
             grains[index] = SoundGrain(p);

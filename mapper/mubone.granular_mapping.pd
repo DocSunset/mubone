@@ -1,6 +1,6 @@
 #N canvas 0 49 924 1001 12;
-#X obj 328 190 oscformat direction;
-#X obj 328 215 s granular_description;
+#X obj 391 106 oscformat direction;
+#X obj 391 131 s granular_description;
 #X obj 730 671 s granular_description;
 #X obj 31 581 s granular_description;
 #X obj 31 258 s granular_description;
@@ -26,14 +26,14 @@
 #X obj 224 369 r granular_max_freq;
 #X obj 224 401 log 2;
 #X obj 32 111 hsl 128 15 0 1024 0 0 empty empty empty -2 -8 0 10 -262144
--1 -1 0 1;
+-1 -1 11000 1;
 #X obj 29 131 / 1024;
 #X obj 34 308 hsl 128 15 0 1024 0 0 empty empty empty -2 -8 0 10 -262144
--1 -1 0 1;
+-1 -1 4000 1;
 #X obj 460 619 s granular_description;
 #X obj 615 442 log 2;
 #X obj 463 347 hsl 128 15 0 1024 0 0 empty empty empty -2 -8 0 10 -262144
--1 -1 0 1;
+-1 -1 6700 1;
 #X obj 460 594 oscformat duration;
 #X obj 615 410 r granular_min_period;
 #X obj 433 410 r mubone_joystick_polar;
@@ -50,7 +50,7 @@
 #X obj 31 433 mubone.linmap -180 180 -3 13;
 #X obj 460 472 mubone.linmap -180 180 -13 6;
 #X obj 460 370 mubone.linmap 0 1024 -180 180;
-#X obj 328 157 r mubone_normal;
+#X obj 391 73 r mubone_normal;
 #X obj 733 575 hsl 128 15 0 60000 0 0 empty empty empty -2 -8 0 10
 -262144 -1 -1 0 1;
 #X obj 730 595 / 1000;
@@ -127,11 +127,11 @@
 #X restore 36 987 pd network;
 #X obj 60 859 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
 1;
-#X obj 259 859 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
+#X obj 259 859 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 1
 1;
 #X obj 391 885 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
 1;
-#X obj 177 886 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
+#X obj 177 886 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 1
 1;
 #X obj 232 911 oscformat -f i sound_recording, f 16;
 #X obj 27 911 oscformat -f i granulating;
@@ -163,10 +163,25 @@
 #X obj 27 772 change 1;
 #X obj 674 539 s granular_description;
 #X obj 677 443 hsl 128 15 0 1000 0 0 empty empty empty -2 -8 0 10 -262144
--1 -1 0 1;
+-1 -1 12700 1;
 #X obj 674 463 / 1000;
 #X floatatom 734 486 5 0 0 0 - - -;
 #X obj 674 515 oscformat activation_probability;
+#X obj 372 303 s granular_description;
+#X obj 375 207 hsl 128 15 0 1000 0 0 empty empty empty -2 -8 0 10 -262144
+-1 -1 100 1;
+#X obj 372 227 / 1000;
+#X floatatom 432 250 5 0 0 0 - - -;
+#X obj 372 279 oscformat skew;
+#X obj 294 98 bng 15 250 50 0 empty empty empty 17 7 0 10 -262144 -1
+-1;
+#X obj 557 304 s granular_description;
+#X obj 560 208 hsl 128 15 0 4900 0 0 empty empty empty -2 -8 0 10 -262144
+-1 -1 6600 1;
+#X obj 557 228 / 1000;
+#X floatatom 617 251 5 0 0 0 - - -;
+#X obj 557 280 oscformat sharp;
+#X obj 557 254 + 0.1;
 #X connect 0 0 1 0;
 #X connect 9 0 2 0;
 #X connect 10 0 3 0;
@@ -263,3 +278,18 @@
 #X connect 95 0 96 0;
 #X connect 95 0 97 0;
 #X connect 97 0 93 0;
+#X connect 99 0 100 0;
+#X connect 100 0 101 0;
+#X connect 100 0 102 0;
+#X connect 102 0 98 0;
+#X connect 103 0 25 0;
+#X connect 103 0 27 0;
+#X connect 103 0 99 0;
+#X connect 103 0 30 0;
+#X connect 103 0 94 0;
+#X connect 103 0 105 0;
+#X connect 105 0 106 0;
+#X connect 106 0 109 0;
+#X connect 108 0 104 0;
+#X connect 109 0 108 0;
+#X connect 109 0 107 0;

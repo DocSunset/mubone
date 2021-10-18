@@ -26,7 +26,9 @@ public:
     struct Parameters
     {
         ControlSoundReference ref;
-        int channel;
+        int l_channel;
+        int r_channel;
+        float pan;
         float playbackrate;
         int delay;
         int duration;
@@ -46,7 +48,12 @@ public:
     bool busy() const noexcept {return written < p.duration;}
     bool idle() const noexcept {return !busy();}
 
-    void getNextAudioBlock(juce::AudioBuffer<float>& buffer, int startsamp, int numsamples, Sound& workingbuffer) 
+    void getNextAudioBlock
+            ( juce::AudioBuffer<float>& buffer
+            , int startsamp
+            , int numsamples
+            , Sound& workingbuffer
+            ) 
     {
         if (idle()) return;
 
@@ -66,7 +73,13 @@ public:
 
         workingbuffer.copyFrom((p.ref + written).getReadPointer(), numsamples);
         p.window.apply(workingbuffer.getWritePointer(), written, p.duration, numsamples, p.amplitude);
-        buffer.addFrom(p.channel, startsamp, workingbuffer.getReadPointer(), numsamples);
+        if (buffer.getNumChannels() < 2)
+            buffer.addFrom(0, startsamp, workingbuffer.getReadPointer(), numsamples);
+        else
+        {
+            buffer.addFrom(0, startsamp, workingbuffer.getReadPointer(), numsamples, p.pan);
+            buffer.addFrom(1, startsamp, workingbuffer.getReadPointer(), numsamples, 1.0f - p.pan);
+        }
 
         written += numsamples;
     }

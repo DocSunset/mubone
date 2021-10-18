@@ -44,8 +44,10 @@ private:
     void updateSliders();
     void initializeSetupComp();
     void initializeAudioSettings();
-    int mixInputs(const juce::AudioSourceChannelInfo& iobuffer); 
+
     // returns input channel to which the inputs were mixed
+    int mixInputs(const juce::AudioSourceChannelInfo& iobuffer); 
+
     int getInputChannel();
 
     juce::AudioDeviceSelectorComponent audioSetupComp;

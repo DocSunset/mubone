@@ -1,9 +1,40 @@
 #include "cloud.h"
 
 #include "../3rdparty/simplesound/simple/random.h"
+#include "../3rdparty/simplesound/simple/constants/pi.h"
+#include "../3rdparty/simplesound/simple/boundaries.h"
 
 namespace mubone::synthesis
 {
+
+auto GrainCloud::getChannel(const GrainDescription& gd, const ControlSoundReference& ref) const
+{
+    auto width = get<spatial_width>(gd).value;
+    auto spray = get<spatial_spray>(gd).value;
+
+    if (width <= 0.0f) return std::make_tuple(0, 1, 0.5f);
+
+    auto directional_pan = ref.getNormal().x();
+    auto random_pan = Simple::Random<float>::in_range(-1, 1);
+    float pan = spray * random_pan + (1 - spray) * directional_pan;
+
+    // https://www.desmos.com/calculator/gdcmisuiu3
+    if (width > 1)
+    {
+        auto z = Simple::clip(width - 1.0);
+        auto s = 1.0f - z;
+        if (std::abs(pan) > s)
+            pan = pan > 0 ? 1 : -1;
+        else
+            pan = pan > 0 ? pan + z : pan - z;
+    }
+    else
+    {
+        pan = pan * width;
+    }
+    pan = Simple::clip(0.5 * pan + 0.5);
+    return std::make_tuple(0, 1, pan);
+}
 
 void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
 {
@@ -59,7 +90,7 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
             auto sound = audiosphere.random_candidate();
             if (!sound) continue;
 
-            int _channel         = getChannel();
+            auto [_l_channel, _r_channel, _pan] = getChannel(g, sound);
             float _playback_rate = (float)get<playback_rate>(g);
             float _duration      = (float)get<duration>(g) * samplerate;
             float _amplitude     = (float)get<amplitude>(g);
@@ -67,7 +98,9 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
             
             SoundGrain::Parameters p;
             p.ref = sound;
-            p.channel = _channel;
+            p.l_channel = _l_channel;
+            p.r_channel = _r_channel;
+            p.pan = _pan;
             p.playbackrate = _playback_rate;
             p.delay = i;
             p.duration = _duration;
@@ -88,7 +121,6 @@ void GrainCloud::launchNewGrains(int numSamples)
     auto _amplitude = get<amplitude>(gd);
     auto _frequency = get<frequency>(gd);
     if (_amplitude == 0 || _frequency == 0) return;
-    int _channel         = getChannel();
     float _playback_rate = (float)get<playback_rate>(gd);
     float _duration      = (float)get<duration>(gd) * samplerate;
     float _activation_probability = (float)get<activation_probability>(gd);
@@ -117,9 +149,12 @@ void GrainCloud::launchNewGrains(int numSamples)
             auto sound = audiosphere.random_candidate();
             if (!sound) continue;
 
+            auto [_l_channel, _r_channel, _pan] = getChannel(gd, sound);
             SoundGrain::Parameters p;
             p.ref = sound;
-            p.channel = _channel;
+            p.l_channel = _l_channel;
+            p.r_channel = _r_channel;
+            p.pan = _pan;
             p.playbackrate = _playback_rate;
             p.delay = i;
             p.duration = _duration;
@@ -133,8 +168,6 @@ void GrainCloud::launchNewGrains(int numSamples)
         }
     }
 }
-
-int   GrainCloud::getChannel() const {return 0;}
 
 bool GrainCloud::allGrainsBusy() const
 {

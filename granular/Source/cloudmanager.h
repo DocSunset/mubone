@@ -112,9 +112,43 @@ public:
 
     bool cloudPlanted(int i) const {if (0 <= i && i < numclouds) return clouds[i].planted(); else return false;}
     const Vector& normal() const {return get<direction>(graindescription).value;}
+
     static constexpr int numclouds = 8;
+    static constexpr int max_channels = GrainCloud::max_channels;
 
     GrainDescription graindescription;
+
+    // this is currently unused, but may provide a useful subroutine for
+    // multichannel spatialisation
+    void updateActiveChannels(juce::AudioDeviceManager& deviceManager)
+    {
+        auto* device = deviceManager.getCurrentAudioDevice();
+        if (device == nullptr) return;
+        auto activeOutputChannels = device->getActiveOutputChannels();
+        auto maxOutputChannels = activeOutputChannels.getHighestBit() + 1;
+    
+        bool updated = false;
+        int j = 0;
+        for (int i = 0; i < maxOutputChannels; ++i)
+        {
+            if (activeOutputChannels[i])
+            {
+                if (active_channels[j] != i)
+                {
+                    active_channels[j] = i;
+                    updated = true;
+                    ++j;
+                    if (j == max_channels) break;
+                }
+            }
+        }
+
+        if (updated)
+        {
+            num_active_channels = j;
+            // notify clouds
+        }
+    }
 
 private:
     void grabClosestCloud()
@@ -140,6 +174,8 @@ private:
         }
     }
 
+    std::array<int, max_channels> active_channels;
+    int num_active_channels;
     std::array<GrainCloud, numclouds> clouds;
     Sound workingbuffer;
     GrainCloud cursor;

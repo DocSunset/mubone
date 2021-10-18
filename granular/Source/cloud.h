@@ -48,16 +48,22 @@ public:
     { 
     }
 
-    void getNextAudioBlock(const std::size_t& time, const juce::AudioSourceChannelInfo& iobuffer, Sound& workingbuffer)
+    void getNextAudioBlock
+            ( const std::size_t& time
+            , const juce::AudioSourceChannelInfo& iobuffer
+            , Sound& workingbuffer
+            )
     {
         if (planted()) launchNewGrains(time, iobuffer.numSamples);
         for (auto& grain : grains) 
         {
             if (grain.idle()) continue;
-            grain.getNextAudioBlock(*(iobuffer.buffer),
-                                    iobuffer.startSample,
-                                    iobuffer.numSamples,
-                                    workingbuffer);
+            grain.getNextAudioBlock
+                    ( *(iobuffer.buffer)
+                    , iobuffer.startSample
+                    , iobuffer.numSamples
+                    , workingbuffer
+                    );
         }
     }
 
@@ -72,7 +78,7 @@ public:
     int   getNumCandidates(float searchdistance) const;
     bool  allGrainsBusy() const;
     int   getIdleGrain() const;
-    int   getChannel() const;
+    auto  getChannel(const GrainDescription&, const ControlSoundReference&) const;
 
     void  plant() {plantedflag = true;}
     void  grab() {plantedflag = false;}
@@ -89,6 +95,9 @@ public:
     Vector normal() const { return get<direction>(gd); }
 
     static constexpr int numgrains = 32;
+    static constexpr int max_channels = 8;
+    std::array<int, max_channels> active_channels;
+    int num_active_channels;
 private:
 
     std::array<SoundGrain, numgrains> grains;

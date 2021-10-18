@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 #include "parameters.hpp"
 #include "list.hpp"
 #include "MainComponent.h"
@@ -132,26 +133,30 @@ int MainComponent::mixInputs(const juce::AudioSourceChannelInfo& iobuffer)
     auto* device = deviceManager.getCurrentAudioDevice();
     if (device == nullptr) return -1; 
     auto activeInputChannels = device->getActiveInputChannels();
-    auto maxInputChannels = activeInputChannels .getHighestBit() + 1;
+    auto maxInputChannels = activeInputChannels.getHighestBit() + 1;
 
     // get the lowest numbered 
-    int minimumActiveChannel = maxInputChannels + 1;
+    int minimumActiveChannel = std::numeric_limits<int>::max();
     const auto startsamp = iobuffer.startSample;
     const auto numsamps = iobuffer.numSamples;
     for (int i = 0; i < maxInputChannels; ++i)
     {
         if (activeInputChannels[i])
         {
+            // these will be true for the first (lowest index) active input channel
             if (i < minimumActiveChannel) minimumActiveChannel = i;
-            if (i == minimumActiveChannel) continue;
+            if (i == minimumActiveChannel) continue; 
+
+            // all other channels get mixed onto that channel
             iobuffer.buffer->addFrom(minimumActiveChannel, startsamp,
                                      *(iobuffer.buffer), i, startsamp, numsamps);
         }
     }
-    if (minimumActiveChannel == maxInputChannels + 1) return -1;
+    if (minimumActiveChannel == std::numeric_limits<int>::max()) return -1; // no active input channels
     else return minimumActiveChannel;
 }
 
+// it appears this function is no longer used and should be pruned?
 int MainComponent::getInputChannel()
 {
     auto* device = deviceManager.getCurrentAudioDevice();

@@ -4,12 +4,38 @@
 #include "../3rdparty/simplesound/simple/constants/pi.h"
 #include "../3rdparty/simplesound/simple/boundaries.h"
 
+namespace
+{
+    template<typename Signal>
+    float spray(const Signal& signal, float s)
+    {
+        return s * Simple::Random<float>::in_range(signal.min(), signal.max())
+               + (1 - s) * signal.value;
+    }
+
+    float frequency_mapping(float f)
+    {
+        constexpr float log_max_freq = 13.84352853461109; // log2(44100/3)
+        constexpr float log_min_freq = -3.0; // 0.125 hz, 8 sec period
+        float exponent = log_min_freq + (log_max_freq - log_min_freq) * f;
+        return std::pow(2, exponent);
+    }
+
+    float duration_mapping(float d)
+    {
+        constexpr float log_max_dur = 6; // 64 sec period
+        constexpr float log_min_dur = -13.84352853461109; // log2(3/44100), 3 samps period at 44100 hz sr
+        float exponent = log_min_dur + (log_max_dur - log_min_dur) * d;
+        return std::pow(2, exponent);
+    }
+}
+
 namespace mubone::synthesis
 {
 
 auto GrainCloud::getChannel(const GrainDescription& gd, const ControlSoundReference& ref) const
 {
-    auto width = get<spatial_width>(gd).value;
+    auto width = 2 * get<spatial_width>(gd).value;
     auto spray = get<spatial_spray>(gd).value;
 
     if (width <= 0.0f) return std::make_tuple(0, 1, 0.5f);
@@ -70,8 +96,9 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
         GrainDescription g = lines_at(lines, time + i);
         
         float _activation_probability = (float)get<activation_probability>(g);
-        float _frequency = (float)get<frequency>(g);
-        trigger.frequency.set_hz(_frequency);
+        auto _frequency = get<frequency>(g);
+        float _frequency_spray = (float)get<frequency_spray>(gd);
+        trigger.frequency.set_hz(frequency_mapping(spray(_frequency, _frequency_spray)));
         if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
         {
             int index = getIdleGrain();
@@ -92,7 +119,8 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
 
             auto [_l_channel, _r_channel, _pan] = getChannel(g, sound);
             float _playback_rate = (float)get<playback_rate>(g);
-            float _duration      = (float)get<duration>(g) * samplerate;
+            auto _duration      = get<duration>(g);
+            float _duration_spray = get<duration_spray>(gd);
             float _amplitude     = (float)get<amplitude>(g);
             float _skew          = (float)get<skew>(g);
             
@@ -103,7 +131,7 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
             p.pan = _pan;
             p.playbackrate = _playback_rate;
             p.delay = i;
-            p.duration = _duration;
+            p.duration = duration_mapping(spray(_duration, _duration_spray)) * samplerate;
             p.amplitude = _amplitude;
             p.window = Window{_skew};
 
@@ -120,16 +148,18 @@ void GrainCloud::launchNewGrains(int numSamples)
     // TODO: combine this and the previous method
     auto _amplitude = get<amplitude>(gd);
     auto _frequency = get<frequency>(gd);
+    auto _frequency_spray = get<frequency_spray>(gd);
     if (_amplitude == 0 || _frequency == 0) return;
     float _playback_rate = (float)get<playback_rate>(gd);
-    float _duration      = (float)get<duration>(gd) * samplerate;
+    auto _duration      = get<duration>(gd);
+    auto _duration_spray = get<duration_spray>(gd);
     float _activation_probability = (float)get<activation_probability>(gd);
     float _skew = (float)get<skew>(gd);
 
-    trigger.frequency.set_hz(_frequency);
     bool sorted = false;
     for (int i = 0; i < numSamples; ++i)
     {
+        trigger.frequency.set_hz(frequency_mapping(spray(_frequency, _frequency_spray)));
         if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
         {
             int index = getIdleGrain();
@@ -157,7 +187,7 @@ void GrainCloud::launchNewGrains(int numSamples)
             p.pan = _pan;
             p.playbackrate = _playback_rate;
             p.delay = i;
-            p.duration = _duration;
+            p.duration = duration_mapping(spray(_duration, _duration_spray)) * samplerate;
             p.amplitude = _amplitude;
             p.window = Window{_skew};
 

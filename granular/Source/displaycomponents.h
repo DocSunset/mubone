@@ -57,9 +57,9 @@ public:
 
     void update(const GrainDescription& gd)
     {
-        amp.setValue(get<amplitude>(gd), juce::dontSendNotification);
-        freq.setValue(get<frequency>(gd), juce::dontSendNotification);
-        dur.setValue(get<duration>(gd), juce::dontSendNotification);
+        amp.setValue(get<amplitude_min>(gd), juce::dontSendNotification);
+        freq.setValue(get<frequency_min>(gd), juce::dontSendNotification);
+        dur.setValue(get<duration_min>(gd), juce::dontSendNotification);
         deg.setValue(get<search_radius>(gd), juce::dontSendNotification);
     }
 };

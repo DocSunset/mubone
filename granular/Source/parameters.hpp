@@ -104,13 +104,16 @@ namespace synthesis
 {
     ADD_SIGNAL(direction, "/direction", Vector, 0, 1);
     ADD_SIGNAL(search_radius, "/search_angle", float, 1, 180);
-    ADD_SIGNAL(frequency, "/frequency", float, 0, 1);
-    ADD_SIGNAL(frequency_spray, "/frequency/spray", float, 0, 1);
-    ADD_SIGNAL(duration, "/duration", float, 0, 1);
-    ADD_SIGNAL(duration_spray, "/duration/spray", float, 0, 1);
-    ADD_SIGNAL(skew, "/skew", float, 0, 1);
+    ADD_SIGNAL(frequency_min, "/frequency/min", float, 0, 1);
+    ADD_SIGNAL(frequency_max, "/frequency/max", float, 0, 1);
+    ADD_SIGNAL(duration_min, "/duration/min", float, 0, 1);
+    ADD_SIGNAL(duration_max, "/duration/max", float, 0, 1);
+    ADD_SIGNAL(skew_min, "/skew/min", float, 0, 1);
+    ADD_SIGNAL(skew_max, "/skew/max", float, 0, 1);
     ADD_SIGNAL(playback_rate, "/playback_rate", float, -4, 4);
-    ADD_SIGNAL(amplitude, "/amplitude", float, 0, 1);
+    ADD_SIGNAL(amplitude_min, "/amplitude/min", float, 0, 1);
+    ADD_SIGNAL(amplitude_max, "/amplitude/max", float, 0, 1);
+    ADD_SIGNAL(amplitude_curve, "/amplitude/curve", float, 0, 1);
     ADD_SIGNAL(activation_probability, "/activation_probability", float, 0, 1);
     ADD_SIGNAL(spatial_width, "/spatial/width", float, 0, 1);
     ADD_SIGNAL(spatial_spray, "/spatial/spray", float, 0, 1);
@@ -121,9 +124,10 @@ namespace synthesis
     ADD_SIGNAL(granulating, "/granulating", bool, 0, 1);
     ADD_SIGNAL(reset_trigger, "/reset", bool, 0, 1);
 
-    using GrainDescription = List<direction, search_radius, frequency, duration,
-          skew, playback_rate, amplitude, activation_probability, spatial_width,
-          spatial_spray, frequency_spray, duration_spray>;
+    using GrainDescription = List<direction, search_radius, frequency_min,
+          duration_min, skew_min, skew_max, playback_rate, amplitude_min,
+          activation_probability, spatial_width, spatial_spray, frequency_max,
+          duration_max, amplitude_max, amplitude_curve>;
 
     using State = List<sound_recording, gesture_recording, clouds_planted,
           granulating, reset_trigger>;
@@ -132,16 +136,19 @@ namespace synthesis
     {
         get<direction>(g)            = Vector(1,  0,  0);
         get<search_radius>(g)        = 0.5;
-        get<frequency>(g)            = 0.5;
-        get<duration>(g)             = 0.5;
-        get<skew>(g)                 = 0.5;
+        get<frequency_min>(g)        = 0.5;
+        get<frequency_max>(g)        = 0.5;
+        get<duration_min>(g)         = 0.5;
+        get<duration_max>(g)         = 0.5;
+        get<skew_min>(g)             = 0.5;
+        get<skew_max>(g)             = 0.5;
         get<playback_rate>(g)        = 1;
-        get<amplitude>(g)            = 0.03125;
+        get<amplitude_min>(g)        = 0.5;
+        get<amplitude_max>(g)        = 0.5;
+        get<amplitude_curve>(g)      = 0.5;
         get<activation_probability>(g) = 1;
         get<spatial_width>(g)        = 0;
         get<spatial_spray>(g)        = 0;
-        get<frequency_spray>(g)      = 0;
-        get<duration_spray>(g)       = 0;
     }
 
     void initialize(State& s)

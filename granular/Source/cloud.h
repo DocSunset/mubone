@@ -12,7 +12,7 @@
 
 #include <array>
 
-#include <../3rdparty/simplesound/simple/synchronoustrigger.h>
+#include <../3rdparty/simplesound/simple/iottrigger.h>
 #include <../3rdparty/simplesound/simple/interpolators.h>
 
 #include "parameters.hpp"
@@ -128,7 +128,7 @@ private:
     }
 
 
-    Simple::SynchronousTrigger trigger;
+    Simple::IOTTrigger trigger;
     bool plantedflag = false;
     bool updated = false;
     std::size_t updated_time = 0;

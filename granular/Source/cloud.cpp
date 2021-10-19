@@ -80,15 +80,15 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
     auto lines = make_lines(updated_time);
     auto start = lines_at(lines, time);
     auto end = lines_at(lines, time + numSamples);
-    auto start_amp = get<amplitude>(start);
-    auto end_amp = get<amplitude>(end);
-    auto start_freq = get<frequency>(start);
-    auto end_freq = get<frequency>(end);
+    auto start_amp_min = get<amplitude_min>(start);
+    auto start_amp_max = get<amplitude_max>(start);
+    auto end_amp_min = get<amplitude_min>(end);
+    auto end_amp_max = get<amplitude_max>(end);
     
     // no need to bother launching grains if they will be silent
-    if (  start_amp == 0 && end_amp == 0) return;
-    // no need to run the trigger if the frequency is zero
-    if (  start_freq == 0 && end_freq == 0) return;
+    if (  start_amp_min == 0 && end_amp_min == 0
+       && start_amp_max == 0 && end_amp_max == 0
+       ) return;
 
     bool sorted = false;
     for (int i = 0; i < numSamples; ++i)
@@ -96,11 +96,13 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
         GrainDescription g = lines_at(lines, time + i);
         
         float _activation_probability = (float)get<activation_probability>(g);
-        auto _frequency = get<frequency>(g);
-        float _frequency_spray = (float)get<frequency_spray>(gd);
-        trigger.frequency.set_hz(frequency_mapping(spray(_frequency, _frequency_spray)));
+        trigger.min_period.set_hz(frequency_mapping(get<frequency_min>(g)));
+        trigger.max_period.set_hz(frequency_mapping(get<frequency_max>(g)));
         if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
         {
+            float _amp_base = Simple::Random<float>::in_range(get<amplitude_min>(g), get<amplitude_max>(g));
+            if (_amp_base == 0) continue;
+            float _amplitude = std::pow(_amp_base, get<amplitude_curve>(g) * 10.0f);
             int index = getIdleGrain();
             if (index < 0 || index > numgrains) 
             {
@@ -119,10 +121,9 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
 
             auto [_l_channel, _r_channel, _pan] = getChannel(g, sound);
             float _playback_rate = (float)get<playback_rate>(g);
-            auto _duration      = get<duration>(g);
-            float _duration_spray = get<duration_spray>(gd);
-            float _amplitude     = (float)get<amplitude>(g);
-            float _skew          = (float)get<skew>(g);
+            auto _duration      = get<duration_min>(g);
+            float _duration_spray = get<duration_max>(gd);
+            float _skew          = Simple::Random<float>::in_range(get<skew_min>(g), get<skew_max>(g));
             
             SoundGrain::Parameters p;
             p.ref = sound;
@@ -131,7 +132,7 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
             p.pan = _pan;
             p.playbackrate = _playback_rate;
             p.delay = i;
-            p.duration = duration_mapping(spray(_duration, _duration_spray)) * samplerate;
+            p.duration = duration_mapping(Simple::Random<float>::in_range(_duration, _duration_spray)) * samplerate;
             p.amplitude = _amplitude;
             p.window = Window{_skew};
 
@@ -146,22 +147,22 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
 void GrainCloud::launchNewGrains(int numSamples)
 {
     // TODO: combine this and the previous method
-    auto _amplitude = get<amplitude>(gd);
-    auto _frequency = get<frequency>(gd);
-    auto _frequency_spray = get<frequency_spray>(gd);
-    if (_amplitude == 0 || _frequency == 0) return;
+    if (get<amplitude_min>(gd) == 0 && get<amplitude_max>(gd) == 0) return;
     float _playback_rate = (float)get<playback_rate>(gd);
-    auto _duration      = get<duration>(gd);
-    auto _duration_spray = get<duration_spray>(gd);
+    auto _duration_min = get<duration_min>(gd);
+    auto _duration_max = get<duration_max>(gd);
     float _activation_probability = (float)get<activation_probability>(gd);
-    float _skew = (float)get<skew>(gd);
+    trigger.min_period.set_hz(frequency_mapping(get<frequency_min>(gd)));
+    trigger.max_period.set_hz(frequency_mapping(get<frequency_max>(gd)));
 
     bool sorted = false;
     for (int i = 0; i < numSamples; ++i)
     {
-        trigger.frequency.set_hz(frequency_mapping(spray(_frequency, _frequency_spray)));
         if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
         {
+            float _amp_base = Simple::Random<float>::in_range(get<amplitude_min>(gd), get<amplitude_max>(gd));
+            if (_amp_base == 0) continue;
+            float _amplitude = std::pow(_amp_base, get<amplitude_curve>(gd) * 10.0f);
             int index = getIdleGrain();
             if (index < 0 || index > numgrains) 
             {
@@ -187,8 +188,9 @@ void GrainCloud::launchNewGrains(int numSamples)
             p.pan = _pan;
             p.playbackrate = _playback_rate;
             p.delay = i;
-            p.duration = duration_mapping(spray(_duration, _duration_spray)) * samplerate;
+            p.duration = duration_mapping(Simple::Random<float>::in_range(_duration_min, _duration_max)) * samplerate;
             p.amplitude = _amplitude;
+            float _skew          = Simple::Random<float>::in_range(get<skew_min>(gd), get<skew_max>(gd));
             p.window = Window{_skew};
 
             jassert(index >= 0);

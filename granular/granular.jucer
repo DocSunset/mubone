@@ -19,6 +19,10 @@
     <GROUP id="{BA281CFC-B598-D8D8-E922-16CA98493E5F}" name="Source">
       <FILE id="RwOpko" name="audiosphere.cpp" compile="1" resource="0" file="Source/audiosphere.cpp"/>
       <FILE id="m9GmxG" name="audiosphere.h" compile="0" resource="0" file="Source/audiosphere.h"/>
+      <FILE id="cNUeVK" name="parameter_mapping.cpp" compile="1" resource="0"
+            file="Source/parameter_mapping.cpp"/>
+      <FILE id="OesCEa" name="parameter_mapping.h" compile="0" resource="0"
+            file="Source/parameter_mapping.h"/>
       <FILE id="sRP9aK" name="cloud.cpp" compile="1" resource="0" file="Source/cloud.cpp"/>
       <FILE id="NDyZQ6" name="cloud.h" compile="0" resource="0" file="Source/cloud.h"/>
       <FILE id="A5p8Gb" name="cloudmanager.h" compile="0" resource="0" file="Source/cloudmanager.h"/>

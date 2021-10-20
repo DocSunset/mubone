@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parameters.hpp"
+#include "parameter_mapping.h"
 #include "../JuceLibraryCode/JuceHeader.h"
 
 using namespace mubone;
@@ -11,34 +12,78 @@ class GrainDisplayComponent : public juce::Component
     juce::Slider amp;
     juce::Slider freq;
     juce::Slider dur;
+    juce::Slider skew;
+    juce::Slider space;
     juce::Slider deg;
     
 public:
+    void set_text_function(juce::Slider& slider)
+    {
+        auto f = [&](double value)
+        {
+            if (slider.getSliderStyle() != juce::Slider::SliderStyle::TwoValueVertical 
+                    && slider.getSliderStyle() != juce::Slider::SliderStyle::TwoValueHorizontal)
+                return juce::String("");
+            auto suff = slider.getTextValueSuffix();
+            auto sep = juce::String(",\n");
+            auto s1 = juce::String(slider.getMinValue(), slider.getNumDecimalPlacesToDisplay());
+            auto s2 = juce::String(slider.getMaxValue(), slider.getNumDecimalPlacesToDisplay());
+            return s1 + suff + sep + s2;
+        };
+        slider.textFromValueFunction = f;
+    }
+
     GrainDisplayComponent()
-    :   amp (juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
-    ,   freq(juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
-    ,   dur (juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    :   amp (juce::Slider::SliderStyle::TwoValueVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    ,   freq(juce::Slider::SliderStyle::TwoValueVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    ,   dur (juce::Slider::SliderStyle::TwoValueVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    ,   skew (juce::Slider::SliderStyle::TwoValueVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    ,   space (juce::Slider::SliderStyle::TwoValueVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
     ,   deg (juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
     {
         amp.setVelocityBasedMode(true);
         freq.setVelocityBasedMode(true);
         dur.setVelocityBasedMode(true);
+        skew.setVelocityBasedMode(true);
+        space.setVelocityBasedMode(true);
         deg.setVelocityBasedMode(true);
         amp.setVelocityModeParameters(1, 10000, 0);
         freq.setVelocityModeParameters(1, 10000, 0);
         dur.setVelocityModeParameters(1, 10000, 0);
         deg.setVelocityModeParameters(1, 10000, 0);
         amp.setRange(0, 1);
-        freq.setRange(0, 20000);
-        dur.setRange(0, 60);
+        freq.setRange(frequency_mapping(0), frequency_mapping(1));
+        dur.setRange(duration_mapping(0), duration_mapping(1));
+        skew.setRange(0, 1);
+        space.setRange(0, 1);
         deg.setRange(0, 1);
         amp.setTextValueSuffix("amp");
         freq.setTextValueSuffix("Hz");
         dur.setTextValueSuffix("sec");
+        skew.setTextValueSuffix("units");
+        space.setTextValueSuffix("units");
         deg.setTextValueSuffix("units");
+        amp.setNumDecimalPlacesToDisplay(3);
+        freq.setNumDecimalPlacesToDisplay(3);
+        dur.setNumDecimalPlacesToDisplay(8);
+        skew.setNumDecimalPlacesToDisplay(3);
+        space.setNumDecimalPlacesToDisplay(3);
+        deg.setNumDecimalPlacesToDisplay(3);
+        set_text_function(amp);
+        set_text_function(freq);
+        set_text_function(dur);
+        set_text_function(skew);
+        set_text_function(space);
+        set_text_function(deg);
+
+        freq.setSkewFactorFromMidPoint(frequency_mapping(0.5));
+        dur.setSkewFactorFromMidPoint(duration_mapping(0.5));
+
         addAndMakeVisible(amp);
         addAndMakeVisible(freq);
         addAndMakeVisible(dur);
+        addAndMakeVisible(skew);
+        addAndMakeVisible(space);
         addAndMakeVisible(deg);
     }
 
@@ -46,21 +91,40 @@ public:
 
     void resized() override
     {
+        constexpr float num_sliders = 6;
         juce::Rectangle<int> area(getLocalBounds());
-        const auto width = area.getWidth() / 4;
+        const auto width = area.getWidth() / num_sliders;
         const auto margin = 5;
         amp.setBounds(area.removeFromLeft(width).reduced(margin));
         freq.setBounds(area.removeFromLeft(width).reduced(margin));
         dur.setBounds(area.removeFromLeft(width).reduced(margin));
+        skew.setBounds(area.removeFromLeft(width).reduced(margin));
+        space.setBounds(area.removeFromLeft(width).reduced(margin));
         deg.setBounds(area.reduced(margin));
+
+        amp.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,   35);
+        freq.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,  35);
+        dur.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,   35);
+        skew.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,  35);
+        space.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width, 35);
+        deg.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,   35);
     }
 
     void update(const GrainDescription& gd)
     {
-        amp.setValue(get<amplitude_min>(gd), juce::dontSendNotification);
-        freq.setValue(get<frequency_min>(gd), juce::dontSendNotification);
-        dur.setValue(get<duration_min>(gd), juce::dontSendNotification);
+        amp.setMinAndMaxValues(get<amplitude_min>(gd), get<amplitude_max>(gd), juce::dontSendNotification);
+        freq.setMinAndMaxValues(frequency_mapping(get<frequency_min>(gd)), frequency_mapping(get<frequency_max>(gd)), juce::dontSendNotification);
+        dur.setMinAndMaxValues(duration_mapping(get<duration_min>(gd)), duration_mapping(get<duration_max>(gd)), juce::dontSendNotification);
+        skew.setMinAndMaxValues(get<skew_min>(gd), get<skew_max>(gd), juce::dontSendNotification);
+        space.setMinAndMaxValues(get<spatial_width>(gd), get<spatial_spray>(gd), juce::dontSendNotification);
         deg.setValue(get<search_radius>(gd), juce::dontSendNotification);
+
+        amp.updateText();
+        freq.updateText();
+        dur.updateText();
+        skew.updateText();
+        space.updateText();
+        deg.updateText();
     }
 };
 

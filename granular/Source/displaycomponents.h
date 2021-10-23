@@ -14,6 +14,7 @@ class GrainDisplayComponent : public juce::Component
     juce::Slider dur;
     juce::Slider skew;
     juce::Slider space;
+    juce::Slider space_spray;
     juce::Slider deg;
     
 public:
@@ -38,7 +39,8 @@ public:
     ,   freq(juce::Slider::SliderStyle::TwoValueVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
     ,   dur (juce::Slider::SliderStyle::TwoValueVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
     ,   skew (juce::Slider::SliderStyle::TwoValueVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
-    ,   space (juce::Slider::SliderStyle::TwoValueVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    ,   space (juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
+    ,   space_spray (juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
     ,   deg (juce::Slider::SliderStyle::LinearBarVertical, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
     {
         amp.setVelocityBasedMode(true);
@@ -46,44 +48,50 @@ public:
         dur.setVelocityBasedMode(true);
         skew.setVelocityBasedMode(true);
         space.setVelocityBasedMode(true);
+        space_spray.setVelocityBasedMode(true);
         deg.setVelocityBasedMode(true);
         amp.setVelocityModeParameters(1, 10000, 0);
         freq.setVelocityModeParameters(1, 10000, 0);
         dur.setVelocityModeParameters(1, 10000, 0);
         deg.setVelocityModeParameters(1, 10000, 0);
-        amp.setRange(0, 1);
+        amp.setRange(-127, 0);
         freq.setRange(frequency_mapping(0), frequency_mapping(1));
-        dur.setRange(duration_mapping(0), duration_mapping(1));
+        dur.setRange(duration_mapping(0) * 1000.0f, duration_mapping(1) * 1000.0f);
         skew.setRange(0, 1);
-        space.setRange(0, 1);
+        space.setRange(0, 2);
+        space_spray.setRange(0, 2);
         deg.setRange(0, 1);
-        amp.setTextValueSuffix("amp");
+        amp.setTextValueSuffix("dBFS");
         freq.setTextValueSuffix("Hz");
-        dur.setTextValueSuffix("sec");
-        skew.setTextValueSuffix("units");
-        space.setTextValueSuffix("units");
-        deg.setTextValueSuffix("units");
+        dur.setTextValueSuffix("ms");
+        skew.setTextValueSuffix("skew");
+        space.setTextValueSuffix("width");
+        space_spray.setTextValueSuffix("spray");
+        deg.setTextValueSuffix("search units");
         amp.setNumDecimalPlacesToDisplay(3);
         freq.setNumDecimalPlacesToDisplay(3);
-        dur.setNumDecimalPlacesToDisplay(8);
+        dur.setNumDecimalPlacesToDisplay(0);
         skew.setNumDecimalPlacesToDisplay(3);
         space.setNumDecimalPlacesToDisplay(3);
+        space_spray.setNumDecimalPlacesToDisplay(3);
         deg.setNumDecimalPlacesToDisplay(3);
         set_text_function(amp);
         set_text_function(freq);
         set_text_function(dur);
         set_text_function(skew);
         set_text_function(space);
+        set_text_function(space_spray);
         set_text_function(deg);
 
         freq.setSkewFactorFromMidPoint(frequency_mapping(0.5));
-        dur.setSkewFactorFromMidPoint(duration_mapping(0.5));
+        dur.setSkewFactorFromMidPoint(duration_mapping(0.5) * 1000.0f);
 
         addAndMakeVisible(amp);
         addAndMakeVisible(freq);
         addAndMakeVisible(dur);
         addAndMakeVisible(skew);
         addAndMakeVisible(space);
+        addAndMakeVisible(space_spray);
         addAndMakeVisible(deg);
     }
 
@@ -99,24 +107,27 @@ public:
         freq.setBounds(area.removeFromLeft(width).reduced(margin));
         dur.setBounds(area.removeFromLeft(width).reduced(margin));
         skew.setBounds(area.removeFromLeft(width).reduced(margin));
-        space.setBounds(area.removeFromLeft(width).reduced(margin));
+        space.setBounds(area.removeFromLeft(width/2).reduced(margin));
+        space_spray.setBounds(area.removeFromLeft(width/2).reduced(margin));
         deg.setBounds(area.reduced(margin));
 
         amp.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,   35);
         freq.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,  35);
         dur.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,   35);
         skew.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,  35);
-        space.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width, 35);
+        space.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width/2, 35);
+        space_spray.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width/2, 35);
         deg.setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, true, width,   35);
     }
 
     void update(const GrainDescription& gd)
     {
         amp.setMinAndMaxValues(get<amplitude_min>(gd), get<amplitude_max>(gd), juce::dontSendNotification);
-        freq.setMinAndMaxValues(frequency_mapping(get<frequency_min>(gd)), frequency_mapping(get<frequency_max>(gd)), juce::dontSendNotification);
-        dur.setMinAndMaxValues(duration_mapping(get<duration_min>(gd)), duration_mapping(get<duration_max>(gd)), juce::dontSendNotification);
+        freq.setMinAndMaxValues(get<frequency_min>(gd), get<frequency_max>(gd), juce::dontSendNotification);
+        dur.setMinAndMaxValues(get<duration_min>(gd), get<duration_max>(gd), juce::dontSendNotification);
         skew.setMinAndMaxValues(get<skew_min>(gd), get<skew_max>(gd), juce::dontSendNotification);
-        space.setMinAndMaxValues(get<spatial_width>(gd), get<spatial_spray>(gd), juce::dontSendNotification);
+        space.setValue(get<spatial_width>(gd), juce::dontSendNotification);
+        space_spray.setValue(get<spatial_spray>(gd), juce::dontSendNotification);
         deg.setValue(get<search_radius>(gd), juce::dontSendNotification);
 
         amp.updateText();
@@ -124,6 +135,7 @@ public:
         dur.updateText();
         skew.updateText();
         space.updateText();
+        space_spray.updateText();
         deg.updateText();
     }
 };

@@ -1,6 +1,7 @@
 #include "cloud.h"
 
 #include "../3rdparty/simplesound/simple/random.h"
+#include "../3rdparty/simplesound/simple/frequency.h"
 #include "../3rdparty/simplesound/simple/constants/pi.h"
 #include "../3rdparty/simplesound/simple/boundaries.h"
 #include "parameter_mapping.h"
@@ -20,7 +21,7 @@ namespace mubone::synthesis
 
 auto GrainCloud::getChannel(const GrainDescription& gd, const ControlSoundReference& ref) const
 {
-    auto width = 2 * get<spatial_width>(gd).value;
+    auto width = get<spatial_width>(gd).value;
     auto spray = get<spatial_spray>(gd).value;
 
     if (width <= 0.0f) return std::make_tuple(0, 1, 0.5f);
@@ -81,13 +82,14 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
         GrainDescription g = lines_at(lines, time + i);
         
         float _activation_probability = (float)get<activation_probability>(g);
-        trigger.min_period.set_hz(frequency_mapping(get<frequency_min>(g)));
-        trigger.max_period.set_hz(frequency_mapping(get<frequency_max>(g)));
+        float fmin = get<frequency_min>(g);
+        if (fmin != 0.0f) trigger.min_period.set_hz(fmin); // setting the frequency to zero may lock the trigger
+        trigger.max_period.set_hz(get<frequency_max>(g));
         if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
         {
-            float _amp_base = Simple::Random<float>::in_range(get<amplitude_min>(g), get<amplitude_max>(g));
-            if (_amp_base == 0) continue;
-            float _amplitude = std::pow(_amp_base, get<amplitude_curve>(g) * 10.0f);
+            float _amp_db = Simple::Random<float>::in_range(get<amplitude_min>(g), get<amplitude_max>(g));
+            if (_amp_db <= -127) continue;
+            float _amplitude = std::pow(10, _amp_db / 20.f);
             int index = getIdleGrain();
             if (index < 0 || index > numgrains) 
             {
@@ -117,7 +119,9 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
             p.pan = _pan;
             p.playbackrate = _playback_rate;
             p.delay = i;
-            p.duration = duration_mapping(Simple::Random<float>::in_range(_duration, _duration_spray)) * samplerate;
+            float dminmidi = Simple::hz_to_midi(1000.0f / get<duration_min>(g));
+            float dmaxmidi = Simple::hz_to_midi(1000.0f / get<duration_max>(g));
+            p.duration = std::ceil(samplerate / Simple::midi_to_hz(Simple::Random<float>::in_range(dminmidi, dmaxmidi)));
             p.amplitude = _amplitude;
             p.window = Window{_skew};
 
@@ -145,9 +149,9 @@ void GrainCloud::launchNewGrains(int numSamples)
     {
         if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
         {
-            float _amp_base = Simple::Random<float>::in_range(get<amplitude_min>(gd), get<amplitude_max>(gd));
-            if (_amp_base == 0) continue;
-            float _amplitude = std::pow(_amp_base, get<amplitude_curve>(gd) * 10.0f);
+            float _amp_db = Simple::Random<float>::in_range(get<amplitude_min>(gd), get<amplitude_max>(gd));
+            if (_amp_db <= -127) continue;
+            float _amplitude = std::pow(10, _amp_db / 20.f);
             int index = getIdleGrain();
             if (index < 0 || index > numgrains) 
             {
@@ -173,7 +177,9 @@ void GrainCloud::launchNewGrains(int numSamples)
             p.pan = _pan;
             p.playbackrate = _playback_rate;
             p.delay = i;
-            p.duration = duration_mapping(Simple::Random<float>::in_range(_duration_min, _duration_max)) * samplerate;
+            float dminmidi = Simple::hz_to_midi(1000.0f / get<duration_min>(gd));
+            float dmaxmidi = Simple::hz_to_midi(1000.0f / get<duration_max>(gd));
+            p.duration = std::ceil(samplerate / Simple::midi_to_hz(Simple::Random<float>::in_range(dminmidi, dmaxmidi)));
             p.amplitude = _amplitude;
             float _skew          = Simple::Random<float>::in_range(get<skew_min>(gd), get<skew_max>(gd));
             p.window = Window{_skew};

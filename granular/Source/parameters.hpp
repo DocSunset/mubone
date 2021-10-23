@@ -113,7 +113,6 @@ namespace synthesis
     ADD_SIGNAL(playback_rate, "/playback_rate", float, -4, 4);
     ADD_SIGNAL(amplitude_min, "/amplitude/min", float, 0, 1);
     ADD_SIGNAL(amplitude_max, "/amplitude/max", float, 0, 1);
-    ADD_SIGNAL(amplitude_curve, "/amplitude/curve", float, 0, 1);
     ADD_SIGNAL(activation_probability, "/activation_probability", float, 0, 1);
     ADD_SIGNAL(spatial_width, "/spatial/width", float, 0, 1);
     ADD_SIGNAL(spatial_spray, "/spatial/spray", float, 0, 1);
@@ -127,7 +126,7 @@ namespace synthesis
     using GrainDescription = List<direction, search_radius, frequency_min,
           duration_min, skew_min, skew_max, playback_rate, amplitude_min,
           activation_probability, spatial_width, spatial_spray, frequency_max,
-          duration_max, amplitude_max, amplitude_curve>;
+          duration_max, amplitude_max>;
 
     using State = List<sound_recording, gesture_recording, clouds_planted,
           granulating, reset_trigger>;
@@ -136,19 +135,18 @@ namespace synthesis
     {
         get<direction>(g)            = Vector(1,  0,  0);
         get<search_radius>(g)        = 0.5;
-        get<frequency_min>(g)        = 0.5;
-        get<frequency_max>(g)        = 0.5;
-        get<duration_min>(g)         = 0.5;
-        get<duration_max>(g)         = 0.5;
+        get<frequency_min>(g)        = 20;
+        get<frequency_max>(g)        = 200;
+        get<duration_min>(g)         = 10;
+        get<duration_max>(g)         = 500;
         get<skew_min>(g)             = 0.5;
         get<skew_max>(g)             = 0.5;
         get<playback_rate>(g)        = 1;
-        get<amplitude_min>(g)        = 0.5;
-        get<amplitude_max>(g)        = 0.5;
-        get<amplitude_curve>(g)      = 0.5;
+        get<amplitude_min>(g)        = -64;
+        get<amplitude_max>(g)        = -12;
         get<activation_probability>(g) = 1;
-        get<spatial_width>(g)        = 0;
-        get<spatial_spray>(g)        = 0;
+        get<spatial_width>(g)        = 1;
+        get<spatial_spray>(g)        = 1;
     }
 
     void initialize(State& s)

@@ -43,6 +43,7 @@ public:
         const int mindur = p.ref.size() < 3 ? p.ref.size() : 3;
         p.duration = Simple::clip(p.duration, p.ref.size(), mindur);
         p.amplitude = Simple::clip(p.amplitude, 1.0f, 0.0f);
+        p.pan = Simple::clip(p.pan, 0.0f, 1.0f);
     } 
 
     bool busy() const noexcept {return written < p.duration;}

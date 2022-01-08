@@ -60,20 +60,18 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
         updated_time = time;
         updated = false;
     }
-    if (time > updated_time + smoothing_time_samps)
-        return launchNewGrains(numSamples);
 
     auto lines = make_lines(updated_time);
     auto start = lines_at(lines, time);
     auto end = lines_at(lines, time + numSamples);
-    auto start_amp_min = get<amplitude_min>(start);
-    auto start_amp_max = get<amplitude_max>(start);
-    auto end_amp_min = get<amplitude_min>(end);
-    auto end_amp_max = get<amplitude_max>(end);
+    auto start_amp_min = get<amplitude_min>(start).value;
+    auto start_amp_max = get<amplitude_max>(start).value;
+    auto end_amp_min = get<amplitude_min>(end).value;
+    auto end_amp_max = get<amplitude_max>(end).value;
     
     // no need to bother launching grains if they will be silent
-    if (  start_amp_min == 0 && end_amp_min == 0
-       && start_amp_max == 0 && end_amp_max == 0
+    if (  start_amp_min <= -127 && end_amp_min <= -127
+       && start_amp_max <= -127 && end_amp_max <= -127
        ) return;
 
     bool sorted = false;
@@ -82,9 +80,11 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
         GrainDescription g = lines_at(lines, time + i);
         
         float _activation_probability = (float)get<activation_probability>(g);
-        float fmin = get<frequency_min>(g);
-        if (fmin != 0.0f) trigger.min_period.set_hz(fmin); // setting the frequency to zero may lock the trigger
-        trigger.max_period.set_hz(get<frequency_max>(g));
+        // ensure valid frequency to avoid locking up the trigger
+        float fmin = Simple::clip(get<frequency_min>(g).value, 0.0001f, 96000.0f);
+        float fmax = Simple::clip(get<frequency_max>(g).value, 0.0001f, 96000.0f);
+        trigger.min_period.set_hz(fmin);
+        trigger.max_period.set_hz(fmax);
         if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
         {
             float _amp_db = Simple::Random<float>::in_range(get<amplitude_min>(g), get<amplitude_max>(g));
@@ -108,81 +108,22 @@ void GrainCloud::launchNewGrains(const std::size_t& time, int numSamples)
 
             auto [_l_channel, _r_channel, _pan] = getChannel(g, sound);
             float _playback_rate = (float)get<playback_rate>(g);
-            auto _duration      = get<duration_min>(g);
+            float _duration      = get<duration_min>(g);
             float _duration_spray = get<duration_max>(gd);
             float _skew          = Simple::Random<float>::in_range(get<skew_min>(g), get<skew_max>(g));
             
             SoundGrain::Parameters p;
             p.ref = sound;
-            p.l_channel = _l_channel;
+            p.l_channel = _l_channel; // if the channels are misconfigured it could wreak havoc
             p.r_channel = _r_channel;
-            p.pan = _pan;
-            p.playbackrate = _playback_rate;
-            p.delay = i;
+            p.pan = _pan; // clipped by grain
+            p.playbackrate = _playback_rate; // not yet implemented
+            p.delay = i; // must be positive or zero; satisfied by construction
             float dminmidi = Simple::hz_to_midi(1000.0f / get<duration_min>(g));
             float dmaxmidi = Simple::hz_to_midi(1000.0f / get<duration_max>(g));
-            p.duration = std::ceil(samplerate / Simple::midi_to_hz(Simple::Random<float>::in_range(dminmidi, dmaxmidi)));
-            p.amplitude = _amplitude;
-            p.window = Window{_skew};
-
-            jassert(index >= 0);
-            grains[index] = SoundGrain(p);
-
-            if (allGrainsBusy()) return;
-        }
-    }
-}
-
-void GrainCloud::launchNewGrains(int numSamples)
-{
-    // TODO: combine this and the previous method
-    if (get<amplitude_min>(gd) == 0 && get<amplitude_max>(gd) == 0) return;
-    float _playback_rate = (float)get<playback_rate>(gd);
-    auto _duration_min = get<duration_min>(gd);
-    auto _duration_max = get<duration_max>(gd);
-    float _activation_probability = (float)get<activation_probability>(gd);
-    trigger.min_period.set_hz(frequency_mapping(get<frequency_min>(gd)));
-    trigger.max_period.set_hz(frequency_mapping(get<frequency_max>(gd)));
-
-    bool sorted = false;
-    for (int i = 0; i < numSamples; ++i)
-    {
-        if (trigger.tick() && Simple::Random<float>::unipolar() < _activation_probability)
-        {
-            float _amp_db = Simple::Random<float>::in_range(get<amplitude_min>(gd), get<amplitude_max>(gd));
-            if (_amp_db <= -127) continue;
-            float _amplitude = std::pow(10, _amp_db / 20.f);
-            int index = getIdleGrain();
-            if (index < 0 || index > numgrains) 
-            {
-                jassert(false); // this should never happen
-                return;
-            }
-
-            if (!sorted)
-            {
-                audiosphere.update();
-                audiosphere.prepare_candidates(get<direction>(gd), get<search_radius>(gd));
-                sorted = true;
-            }
-
-            auto sound = audiosphere.random_candidate();
-            if (!sound) continue;
-
-            auto [_l_channel, _r_channel, _pan] = getChannel(gd, sound);
-            SoundGrain::Parameters p;
-            p.ref = sound;
-            p.l_channel = _l_channel;
-            p.r_channel = _r_channel;
-            p.pan = _pan;
-            p.playbackrate = _playback_rate;
-            p.delay = i;
-            float dminmidi = Simple::hz_to_midi(1000.0f / get<duration_min>(gd));
-            float dmaxmidi = Simple::hz_to_midi(1000.0f / get<duration_max>(gd));
-            p.duration = std::ceil(samplerate / Simple::midi_to_hz(Simple::Random<float>::in_range(dminmidi, dmaxmidi)));
-            p.amplitude = _amplitude;
-            float _skew          = Simple::Random<float>::in_range(get<skew_min>(gd), get<skew_max>(gd));
-            p.window = Window{_skew};
+            p.duration = std::ceil(samplerate / Simple::midi_to_hz(Simple::Random<float>::in_range(dminmidi, dmaxmidi))); // clipped by grain
+            p.amplitude = _amplitude; // clipped by grain
+            p.window = Window{Simple::clip(_skew, 0.0f, 1.0f)};
 
             jassert(index >= 0);
             grains[index] = SoundGrain(p);

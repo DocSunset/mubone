@@ -134,8 +134,6 @@ private:
     std::size_t updated_time = 0;
 
     void launchNewGrains(const std::size_t& time, int numSamples);
-    void launchNewGrains(int numSamples);
-
 };
 
 } // namespace mubone
